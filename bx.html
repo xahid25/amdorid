@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Advanced Web-ADB</title>
+    <script src="https://cdn.jsdelivr.net/npm/webadb@latest/dist/webadb.js"></script>
+    <style>
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f8fafc; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+        .container { width: 100%; max-width: 800px; background: var(--card); padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); border: 1px solid #334155; }
+        h1 { font-size: 1.5rem; color: var(--accent); margin-bottom: 20px; text-align: center; }
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        button { background: var(--accent); color: #000; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        button:hover { opacity: 0.9; transform: translateY(-2px); }
+        button:disabled { background: #475569; cursor: not-allowed; transform: none; }
+        .input-group { display: flex; gap: 10px; margin-top: 15px; }
+        input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; }
+        #terminal { background: #000; color: #10b981; padding: 15px; border-radius: 8px; height: 300px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 13px; margin-top: 20px; border: 1px solid #334155; white-space: pre-wrap; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; background: #ef4444; margin-bottom: 10px; }
+        .connected { background: #10b981; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Advanced Web-ADB Console</h1>
+    <div style="text-align: center;">
+        <span id="statusBadge" class="badge">Offline</span>
+    </div>
+
+    <div class="controls">
+        <button id="btnConnect">Connect Device</button>
+        <button id="btnInfo" disabled>Device Info (GetProp)</button>
+        <button id="btnReboot" disabled style="background: #f43f5e; color: white;">Reboot</button>
+        <button id="btnClear">Clear Logs</button>
+    </div>
+
+    <div class="input-group">
+        <input type="text" id="cmdInput" placeholder="Custom Shell Command (e.g. pm list packages)" disabled>
+        <button id="btnRun" disabled>Run</button>
+    </div>
+
+    <div id="terminal">--- Waiting for USB Connection ---<br>Prerequisites:<br>1. Enable USB Debugging in Phone.<br>2. Use Chrome/Edge Browser.<br>3. Connect via USB Cable.</div>
+</div>
+
+<script>
+    let adb, webusb;
+    const decoder = new TextDecoder();
+
+    // DOM Elements
+    const terminal = document.getElementById('terminal');
+    const statusBadge = document.getElementById('statusBadge');
+    const btnConnect = document.getElementById('btnConnect');
+    const btnInfo = document.getElementById('btnInfo');
+    const btnReboot = document.getElementById('btnReboot');
+    const cmdInput = document.getElementById('cmdInput');
+    const btnRun = document.getElementById('btnRun');
+
+    function log(msg, isError = false) {
+        const time = new Date().toLocaleTimeString();
+        const color = isError ? '#ef4444' : '#10b981';
+        terminal.innerHTML += `<span style="color: #64748b">[${time}]</span> <span style="color: ${color}">${msg}</span><br>`;
+        terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    // Connect Function
+    btnConnect.onclick = async () => {
+        try {
+            log("Requesting USB Permission...");
+            webusb = await Adb.WebUsb.setup();
+            adb = await webusb.connectAdb("host::");
+
+            statusBadge.innerText = "Connected";
+            statusBadge.className = "badge connected";
+            
+            // Enable UI
+            btnInfo.disabled = btnReboot.disabled = cmdInput.disabled = btnRun.disabled = false;
+            
+            log("Connected Successfully!");
+            log("Check your phone for 'Allow USB Debugging' prompt.");
+        } catch (err) {
+            log("Error: " + err.message, true);
+        }
+    };
+
+    // Execute Shell Command
+    async function runCommand(command) {
+        if (!adb) return;
+        try {
+            log("Executing: " + command);
+            const shell = await adb.shell(command);
+            const response = await shell.receive();
+            log("Output: \n" + decoder.decode(response.data));
+        } catch (err) {
+            log("Command Error: " + err.message, true);
+        }
+    }
+
+    btnInfo.onclick = () => runCommand("getprop ro.build.version.release && getprop ro.product.model");
+    btnRun.onclick = () => {
+        const cmd = cmdInput.value;
+        if(cmd) runCommand(cmd);
+    };
+    btnReboot.onclick = async () => {
+        if(confirm("Are you sure you want to reboot?")) {
+            await adb.reboot();
+            log("Reboot command sent.");
+        }
+    };
+    document.getElementById('btnClear').onclick = () => terminal.innerHTML = "";
+</script>
+
+</body>
+</html>
+</html>
