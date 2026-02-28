@@ -1,12 +1,20 @@
 {
-  "name": "amdorid",
+  "name": "webadb",
   "version": "1.0.0",
-  "description": "Simple Node.js app for Vercel",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
+  "description": "ADB host implementation based on WebUSB",
+  "main": "webadb.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/webadb/webadb.js.git"
   },
-  "dependencies": {
-    "express": "^4.18.2"
-  }
+  "keywords": [
+    "webusb",
+    "adb"
+  ],
+  "author": "Domenico Andreoli <domenico.andreoli@linux.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/webadb/webadb.js/issues"
+  },
+  "homepage": "https://github.com/webadb/webadb.js#readme"
 }
