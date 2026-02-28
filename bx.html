@@ -1,94 +1,145 @@
-<!DOCTYPE html>
+<!DOCTYPE HTML>
 <html lang="bn">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brave Compatible ADB Console</title>
-    
+    <title>Gemini Pro ADB Web Console</title>
     <script src="https://cdn.jsdelivr.net/npm/webadb@latest/dist/webadb.min.js"></script>
-
     <style>
-        :root { --bg: #0d1117; --card: #161b22; --accent: #58a6ff; --text: #c9d1d9; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; justify-content: center; }
-        .container { width: 100%; max-width: 650px; background: var(--card); padding: 25px; border-radius: 12px; border: 1px solid #30363d; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
-        .status-box { padding: 10px; margin-bottom: 20px; border-radius: 6px; text-align: center; font-weight: bold; background: #21262d; border: 1px solid #30363d; }
-        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        button { background: #238636; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
-        button:hover { background: #2ea043; }
-        button:disabled { background: #484f58; cursor: not-allowed; }
-        #terminal { background: #010409; color: #39ff14; padding: 15px; border-radius: 6px; height: 300px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 12px; margin-top: 20px; border: 1px solid #30363d; line-height: 1.5; }
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --success: #10b981; --text: #f8fafc; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 800px; background: var(--card); padding: 25px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); border: 1px solid #334155; }
+        .status-bar { padding: 10px; margin-bottom: 20px; border-radius: 8px; text-align: center; font-weight: bold; background: #334155; border-left: 5px solid #ef4444; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        button { background: var(--accent); color: #0f172a; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { opacity: 0.8; transform: translateY(-1px); }
+        button:disabled { background: #475569; color: #94a3b8; cursor: not-allowed; transform: none; }
+        .reboot-btn { background: #ef4444; color: white; }
+        input { padding: 12px; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: white; margin-bottom: 10px; }
+        #log { background: #000; color: #10b981; padding: 15px; border-radius: 8px; height: 300px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 13px; border: 1px solid #334155; white-space: pre-wrap; margin-top: 15px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2 style="text-align: center; color: var(--accent);">ADB Web Console (Brave)</h2>
-    <div id="statusLabel" class="status-box" style="color: #f85149;">Waiting for Library...</div>
+    <h2 style="text-align: center; color: var(--accent);">ADB Web Controller Pro</h2>
+    <div id="statusLabel" class="status-bar">Library Loading...</div>
 
-    <div class="btn-grid">
-        <button id="btnConnect">Connect Android</button>
-        <button id="btnModel" disabled>Get Phone Model</button>
-        <button id="btnBattery" disabled>Check Battery</button>
-        <button id="btnLogcat" disabled>Start Logcat</button>
+    <div class="grid">
+        <button id="connect">Connect USB</button>
+        <button id="disconnect" disabled>Disconnect</button>
+        <button id="get_info" disabled>Device Info</button>
+        <button id="get_ip" disabled>Get IP Address</button>
     </div>
 
-    <div id="terminal">> Status: Waiting for user action...<br></div>
+    <div style="display: flex; gap: 10px; margin-top: 10px;">
+        <input type="text" id="port" value="5555" style="width: 80px;" placeholder="Port" />
+        <button id="tcpip" disabled style="flex: 1;">Enable Wireless ADB (TCPIP)</button>
+        <button id="reboot" disabled class="reboot-btn">Reboot Device</button>
+    </div>
+
+    <div id="log">--- System Ready ---<br>Steps:
+1. Enable USB Debugging in Phone.
+2. Click 'Connect USB'.
+3. Allow RSA Fingerprint on Phone Screen.</div>
 </div>
 
 <script>
-    let adbDevice;
-    const terminal = document.getElementById('terminal');
+    let adb;
+    let webusb;
+    const decoder = new TextDecoder('utf-8');
+
+    const logBox = document.getElementById('log');
     const statusLabel = document.getElementById('statusLabel');
 
-    // Check if library loaded
-    function checkLibrary() {
+    const buttons = ['disconnect', 'get_info', 'get_ip', 'tcpip', 'reboot'];
+
+    function log(msg, color = "#10b981") {
+        const time = new Date().toLocaleTimeString();
+        logBox.innerHTML += `<span style="color: #64748b">[${time}]</span> <span style="color: ${color}">${msg}</span><br>`;
+        logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    // Bug Fix: Check if Library is loaded
+    window.onload = () => {
         if (typeof Adb !== 'undefined') {
-            statusLabel.innerText = "Library Ready";
-            statusLabel.style.color = "#58a6ff";
-            log("Success: WebADB Library Loaded.");
+            statusLabel.innerText = "Library Ready - Disconnected";
+            statusLabel.style.borderLeftColor = "#38bdf8";
+            log("WebADB Library Loaded Successfully.");
         } else {
-            setTimeout(checkLibrary, 1000); // Re-check after 1s
-        }
-    }
-    checkLibrary();
-
-    function log(msg, color = "#39ff14") {
-        terminal.innerHTML += `<span style="color: ${color}">[${new Date().toLocaleTimeString()}] ${msg}</span><br>`;
-        terminal.scrollTop = terminal.scrollHeight;
-    }
-
-    document.getElementById('btnConnect').onclick = async () => {
-        try {
-            log("Opening USB Selector...", "#58a6ff");
-            const webusb = await Adb.WebUsb.setup();
-            adbDevice = await webusb.connectAdb("host::");
-
-            log("Connected! PLEASE CHECK YOUR PHONE FOR RSA PROMPT.", "#ffa500");
-            statusLabel.innerText = "Device Connected";
-            statusLabel.style.color = "#238636";
-
-            // Enable buttons
-            document.querySelectorAll('button').forEach(btn => btn.disabled = false);
-        } catch (err) {
-            log("Error: " + err.message, "#f85149");
+            statusLabel.innerText = "Library Error!";
+            log("Error: Script blocked. Turn off Brave Shields.", "#ef4444");
         }
     };
 
-    async function runCommand(cmd) {
+    const toggleButtons = (state) => {
+        buttons.forEach(id => document.getElementById(id).disabled = !state);
+    };
+
+    // Advanced Connection
+    document.getElementById('connect').onclick = async () => {
         try {
-            const shell = await adbDevice.shell(cmd);
-            const response = await shell.receive();
-            const text = new TextDecoder().decode(response.data);
-            log("Result: " + text);
+            log("Requesting USB Permission...");
+            webusb = await Adb.open("WebUSB");
+            
+            log("Connecting to ADB Host...");
+            adb = await webusb.connectAdb("host::", () => {
+                log("ACTION REQUIRED: Check your phone screen and Allow USB Debugging.", "#fbbf24");
+            });
+
+            if (adb) {
+                statusLabel.innerText = "Status: Connected to " + webusb.device.productName;
+                statusLabel.style.borderLeftColor = "#10b981";
+                log("Connection Established!", "#10b981");
+                toggleButtons(true);
+            }
         } catch (err) {
-            log("Command Error: " + err.message, "#f85149");
+            log("Connection Error: " + err.message, "#ef4444");
+            console.error(err);
         }
-    }
+    };
 
-    document.getElementById('btnModel').onclick = () => runCommand("getprop ro.product.model");
-    document.getElementById('btnBattery').onclick = () => runCommand("dumpsys battery | grep level");
-    document.getElementById('btnLogcat').onclick = () => log("Logcat feature coming soon...");
+    // Get Device Info (Custom Command)
+    document.getElementById('get_info').onclick = async () => {
+        try {
+            let shell = await adb.shell('getprop ro.product.model && getprop ro.build.version.release');
+            let response = await shell.receive();
+            let txt = decoder.decode(response.data);
+            log("Device Info: " + txt.replace("\n", " (Android ") + ")");
+        } catch (e) { log("Error: " + e.message, "#ef4444"); }
+    };
 
+    document.getElementById('get_ip').onclick = async () => {
+        try {
+            log("Fetching IP Address...");
+            let shell = await adb.shell('ip addr show wlan0 | grep "inet "');
+            let response = await shell.receive();
+            log("Network Info: " + decoder.decode(response.data));
+        } catch (e) { log("Error: " + e.message, "#ef4444"); }
+    };
+
+    document.getElementById('tcpip').onclick = async () => {
+        try {
+            let p = document.getElementById('port').value;
+            log("Switching to TCP mode on port: " + p);
+            await adb.tcpip(p);
+            log("Success! You can now connect wirelessly using: adb connect [IP]:" + p);
+        } catch (e) { log("TCP Error: " + e.message, "#ef4444"); }
+    };
+
+    document.getElementById('reboot').onclick = async () => {
+        if(confirm("Phone reboot korben?")) {
+            await adb.reboot();
+            log("Rebooting device...");
+        }
+    };
+
+    document.getElementById('disconnect').onclick = async () => {
+        await webusb.close();
+        log("Disconnected.", "#ef4444");
+        statusLabel.innerText = "Status: Disconnected";
+        statusLabel.style.borderLeftColor = "#ef4444";
+        toggleButtons(false);
+    };
 </script>
 
 </body>
