@@ -4,7 +4,7 @@
     <h3>Step 1: Activate Phone via USB</h3>
     <button onclick="init()">Activate & Connect to Linux</button>
     <p id="stat"></p>
-    <script src="https://cdn.jsdelivr.net/npm/webadb.js@latest/dist/webadb.js"></script>
+    <script src="./webadb.js"></script>
     <script>
         async function init() {
             const webusb = await Adb.open("WebUSB");
