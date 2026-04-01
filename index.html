@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>LAN Battle Arena - Cross Platform Multiplayer Shooter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0a0a0a, #1a1a2e);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        /* Game Container */
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #0a0a0a;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: linear-gradient(135deg, #1a472a, #0a2a1a);
+            cursor: crosshair;
+        }
+
+        /* UI Panels */
+        .panel {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+            color: white;
+            z-index: 100;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Main Menu */
+        #mainMenu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+            z-index: 200;
+        }
+
+        #mainMenu h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ff6a00, #eeff00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #mainMenu input {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 16px;
+        }
+
+        #mainMenu button {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        #mainMenu button:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #ff6a00, #ff3d00);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(45deg, #2196f3, #1976d2);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #f44336, #d32f2f);
+            color: white;
+        }
+
+        /* HUD */
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        .health-bar {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 15px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .health-fill {
+            width: 100px;
+            height: 10px;
+            background: #ff4444;
+            border-radius: 5px;
+            transition: width 0.3s;
+        }
+
+        .score-board {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        /* Connection Info */
+        #connectionInfo {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 5px 10px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-family: monospace;
+            z-index: 50;
+        }
+
+        /* Virtual Joystick */
+        .joystick-container {
+            position: absolute;
+            bottom: 80px;
+            left: 80px;
+            width: 120px;
+            height: 120px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 60px;
+            touch-action: none;
+            z-index: 100;
+        }
+
+        .joystick-base {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 60px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .joystick-thumb {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 25px;
+            top: 35px;
+            left: 35px;
+            transition: transform 0.05s;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            position: absolute;
+            bottom: 80px;
+            right: 80px;
+            display: flex;
+            gap: 20px;
+            z-index: 100;
+        }
+
+        .action-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 35px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            touch-action: none;
+            transition: transform 0.05s;
+        }
+
+        .action-btn:active {
+            transform: scale(0.95);
+            background: rgba(255, 100, 100, 0.5);
+        }
+
+        .fire-btn {
+            background: rgba(255, 50, 50, 0.5);
+            border-color: #ff4444;
+        }
+
+        /* Player List */
+        #playerList {
+            position: absolute;
+            top: 80px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            padding: 10px;
+            min-width: 150px;
+            font-size: 12px;
+            z-index: 50;
+        }
+
+        #playerList h4 {
+            margin-bottom: 5px;
+            text-align: center;
+        }
+
+        .player-entry {
+            padding: 3px 5px;
+            margin: 2px 0;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .player-local {
+            background: rgba(76, 175, 80, 0.3);
+            border-left: 3px solid #4caf50;
+        }
+
+        /* Kill Feed */
+        #killFeed {
+            position: absolute;
+            top: 80px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 5px;
+            padding: 5px;
+            min-width: 200px;
+            font-size: 12px;
+            z-index: 50;
+        }
+
+        .kill-message {
+            padding: 2px 5px;
+            animation: fadeOut 3s forwards;
+        }
+
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { opacity: 0; display: none; }
+        }
+
+        /* Settings Modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+        }
+
+        .modal-content {
+            background: #1e1e2e;
+            padding: 20px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .joystick-container { width: 100px; height: 100px; bottom: 60px; left: 60px; }
+            .action-btn { width: 60px; height: 60px; font-size: 20px; }
+            .action-buttons { bottom: 60px; right: 60px; gap: 15px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Main Menu -->
+        <div id="mainMenu" class="panel">
+            <h1>🔥 LAN BATTLE ARENA</h1>
+            <p style="margin-bottom: 20px;">Cross-Platform Multiplayer Shooter</p>
+            
+            <input type="text" id="playerName" placeholder="Enter your name" maxlength="15">
+            
+            <div style="margin: 15px 0;">
+                <button id="hostBtn" class="btn-primary">🎮 CREATE GAME (HOST)</button>
+                <button id="joinBtn" class="btn-secondary">🔌 JOIN GAME</button>
+                <button id="settingsBtn" class="btn-secondary">⚙️ SETTINGS</button>
+            </div>
+            
+            <div id="ipDisplay" style="background: rgba(0,0,0,0.5); padding: 10px; border-radius: 10px; margin: 10px 0; font-size: 12px;">
+                <span>📡 Local IP: <span id="localIp">Detecting...</span></span>
+            </div>
+            
+            <div style="font-size: 12px; color: #888; margin-top: 15px;">
+                💡 Works on: Hotspot | WiFi | Internet | Offline LAN
+            </div>
+        </div>
+
+        <!-- Join Game Modal -->
+        <div id="joinModal" class="modal hidden">
+            <div class="modal-content">
+                <h3>🔌 JOIN GAME</h3>
+                <input type="text" id="hostIpInput" placeholder="Enter Host IP Address" style="width:100%; padding:10px; margin:10px 0;">
+                <button id="confirmJoinBtn" class="btn-primary">CONNECT</button>
+                <button id="cancelJoinBtn" class="btn-secondary">CANCEL</button>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settingsModal" class="modal hidden">
+            <div class="modal-content">
+                <h3>⚙️ GAME SETTINGS</h3>
+                <label>🎮 Sensitivity:</label>
+                <input type="range" id="sensitivity" min="1" max="10" value="5" style="width:100%">
+                <label>🔊 Sound:</label>
+                <input type="range" id="soundVolume" min="0" max="100" value="50" style="width:100%">
+                <label>🎨 Graphics Quality:</label>
+                <select id="graphicsQuality" style="width:100%; padding:5px;">
+                    <option value="low">Low (Best Performance)</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="high">High</option>
+                </select>
+                <button id="closeSettingsBtn" class="btn-secondary" style="margin-top:15px;">CLOSE</button>
+            </div>
+        </div>
+
+        <!-- HUD -->
+        <div id="hud" class="hidden">
+            <div class="health-bar">
+                ❤️ <span id="healthValue">100</span>%
+                <div class="health-fill" id="healthFill" style="width: 100px;"></div>
+            </div>
+            <div class="score-board">
+                🎯 <span id="scoreValue">0</span>
+            </div>
+        </div>
+
+        <!-- Connection Info -->
+        <div id="connectionInfo" class="hidden">
+            <span id="connStatus">⚫ Connecting...</span> | 
+            IP: <span id="myIpDisplay">-</span>
+        </div>
+
+        <!-- Player List -->
+        <div id="playerList" class="hidden">
+            <h4>👥 PLAYERS</h4>
+            <div id="playerListContent"></div>
+        </div>
+
+        <!-- Kill Feed -->
+        <div id="killFeed" class="hidden"></div>
+
+        <!-- Virtual Controls -->
+        <div id="joystickContainer" class="joystick-container hidden">
+            <div class="joystick-base"></div>
+            <div class="joystick-thumb" id="joystickThumb"></div>
+        </div>
+
+        <div id="actionButtons" class="action-buttons hidden">
+            <div class="action-btn" id="fireBtn">🔫</div>
+            <div class="action-btn" id="reloadBtn">🔄</div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
