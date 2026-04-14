@@ -1,58 +1,106 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
-  <style>
-    body { margin: 0; overflow: hidden; background: #000; }
-    canvas { position: absolute; top: 0; left: 0; }
-    #magic-point {
-      width: 50px; height: 50px; background: cyan;
-      border-radius: 50%; position: absolute;
-      box-shadow: 0 0 20px cyan; pointer-events: none;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magic Particle Swirl</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        canvas { display: block; }
+    </style>
 </head>
 <body>
-  <video id="webcam" style="display:none;"></video>
-  <div id="magic-point"></div>
 
-  <script>
-    const video = document.getElementById('webcam');
-    const point = document.getElementById('magic-point');
+<script type="module">
+    import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
 
-    function onResults(results) {
-      if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-        // Index Finger Tip is landmark 8
-        const indexFinger = results.multiHandLandmarks[0][8];
-        
-        // Map coordinates to screen size
-        const x = (1 - indexFinger.x) * window.innerWidth;
-        const y = indexFinger.y * window.innerHeight;
+    // 1. Scene Setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
 
-        point.style.left = `${x}px`;
-        point.style.top = `${y}px`;
-      }
+    camera.position.z = 5;
+
+    // 2. Particles Configuration
+    const particleCount = 15000;
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    const colors = new Float32Array(particleCount * 3);
+
+    for (let i = 0; i < particleCount; i++) {
+        // Random positions in a sphere-like area
+        positions[i * 3] = (Math.random() - 0.5) * 10;
+        positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
+
+        // Color: Greenish like your screenshot
+        colors[i * 3] = 0.1;   // R
+        colors[i * 3 + 1] = 0.8; // G
+        colors[i * 3 + 2] = 0.4; // B
     }
 
-    const hands = new Hands({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    const material = new THREE.PointsMaterial({
+        size: 0.02,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.8
     });
 
-    hands.setOptions({
-      maxNumHands: 1,
-      modelComplexity: 1,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5
+    const particles = new THREE.Points(geometry, material);
+    scene.add(particles);
+
+    // 3. Mouse Interaction Logic
+    let mouseX = 0, mouseY = 0;
+    document.addEventListener('mousemove', (event) => {
+        mouseX = (event.clientX / window.innerWidth - 0.5) * 2;
+        mouseY = -(event.clientY / window.innerHeight - 0.5) * 2;
     });
 
-    hands.onResults(onResults);
+    // 4. Animation Loop
+    function animate() {
+        requestAnimationFrame(animate);
 
-    const camera = new Camera(video, {
-      onFrame: async () => { await hands.send({image: video}); },
-      width: 1280, height: 720
+        const positions = geometry.attributes.position.array;
+        
+        for (let i = 0; i < particleCount; i++) {
+            let x = positions[i * 3];
+            let y = positions[i * 3 + 1];
+
+            // Swirl Physics: Rotation around the mouse center
+            const dx = x - mouseX * 3;
+            const dy = y - mouseY * 3;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            // Particles move faster when closer to mouse
+            const force = 0.01 / (dist + 0.5);
+            
+            positions[i * 3] += -dy * force; // Perpendicular movement for swirl
+            positions[i * 3 + 1] += dx * force;
+            
+            // Add a little bit of noise/drift
+            positions[i * 3] += (Math.random() - 0.5) * 0.002;
+            positions[i * 3 + 1] += (Math.random() - 0.5) * 0.002;
+        }
+
+        geometry.attributes.position.needsUpdate = true;
+        particles.rotation.y += 0.001;
+
+        renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // 5. Responsive Resize
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
     });
-    camera.start();
-  </script>
+</script>
 </body>
 </html>
