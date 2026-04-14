@@ -3,630 +3,366 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>হাত দিয়ে কন্ট্রোল — Hand Gesture Particles</title>
+<title>Hand Gesture Particles</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@300;400;600&display=swap');
-
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --accent: #7fffc4;
-    --accent2: #ff79c6;
-    --bg: #06060f;
-    --panel: rgba(255,255,255,0.04);
-    --border: rgba(255,255,255,0.08);
-  }
-
-  body {
-    background: var(--bg);
-    color: #eee;
-    font-family: 'Noto Sans Bengali', sans-serif;
-    height: 100vh;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* ── Header ── */
-  header {
-    position: relative;
-    z-index: 30;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 24px;
-    background: rgba(6,6,15,0.85);
-    border-bottom: 1px solid var(--border);
-    backdrop-filter: blur(12px);
-    flex-shrink: 0;
-  }
-
-  header h1 {
-    font-size: 17px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: var(--accent);
-  }
-
-  header span {
-    font-size: 12px;
-    color: rgba(255,255,255,0.35);
-    letter-spacing: 0.06em;
-  }
-
-  /* ── Main canvas area ── */
-  #stage {
-    position: relative;
-    flex: 1;
-    overflow: hidden;
-  }
-
-  #particleCanvas {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-  }
-
-  /* ── Camera preview ── */
-  #camWrap {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    width: 180px;
-    height: 135px;
-    border-radius: 10px;
-    overflow: hidden;
-    border: 1px solid var(--border);
-    background: #000;
-    z-index: 10;
-  }
-
-  #video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transform: scaleX(-1);
-    display: block;
-  }
-
-  #landmarkCanvas {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    transform: scaleX(-1);
-    pointer-events: none;
-  }
-
-  /* ── Status pill ── */
-  #statusPill {
-    position: absolute;
-    top: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 16px;
-    background: rgba(0,0,0,0.6);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    font-size: 13px;
-    color: rgba(255,255,255,0.6);
-    z-index: 20;
-    backdrop-filter: blur(8px);
-    white-space: nowrap;
-  }
-
-  #statusDot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #555;
-    transition: background 0.3s;
-    flex-shrink: 0;
-  }
-
-  #statusDot.active { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
-  #statusDot.warn   { background: #f90; }
-
-  /* ── Gesture badge ── */
-  #gestureBadge {
-    position: absolute;
-    top: 16px;
-    right: 20px;
-    padding: 6px 14px;
-    background: rgba(0,0,0,0.6);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    font-size: 13px;
-    color: var(--accent);
-    z-index: 20;
-    display: none;
-    backdrop-filter: blur(8px);
-  }
-
-  /* ── Particle count ── */
-  #pCount {
-    position: absolute;
-    bottom: 20px;
-    left: 20px;
-    font-size: 11px;
-    color: rgba(255,255,255,0.2);
-    z-index: 10;
-    letter-spacing: 0.08em;
-  }
-
-  /* ── Start overlay ── */
-  #overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(6,6,15,0.93);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 40;
-    gap: 0;
-  }
-
-  .ov-icon {
-    font-size: 64px;
-    margin-bottom: 20px;
-    filter: drop-shadow(0 0 24px rgba(127,255,196,0.4));
-    animation: float 3s ease-in-out infinite;
-  }
-
-  @keyframes float {
-    0%,100% { transform: translateY(0); }
-    50%      { transform: translateY(-10px); }
-  }
-
-  .ov-title {
-    font-size: 24px;
-    font-weight: 600;
-    color: #fff;
-    margin-bottom: 8px;
-    text-align: center;
-  }
-
-  .ov-sub {
-    font-size: 14px;
-    color: rgba(255,255,255,0.45);
-    margin-bottom: 32px;
-    text-align: center;
-    max-width: 300px;
-    line-height: 1.6;
-  }
-
-  #startBtn {
-    padding: 13px 36px;
-    background: transparent;
-    color: var(--accent);
-    border: 1px solid var(--accent);
-    border-radius: 8px;
-    font-size: 15px;
-    font-family: inherit;
-    cursor: pointer;
-    letter-spacing: 0.04em;
-    transition: background 0.2s, color 0.2s, transform 0.15s;
-    margin-bottom: 32px;
-  }
-
-  #startBtn:hover { background: rgba(127,255,196,0.1); transform: scale(1.03); }
-  #startBtn:active { transform: scale(0.97); }
-
-  .gesture-guide {
-    display: flex;
-    gap: 24px;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-
-  .gcard {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    padding: 14px 18px;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    min-width: 100px;
-  }
-
-  .gcard .emoji { font-size: 28px; }
-
-  .gcard .glabel {
-    font-size: 12px;
-    color: rgba(255,255,255,0.5);
-    text-align: center;
-    line-height: 1.4;
-  }
-
-  .gcard .gmode {
-    font-size: 13px;
-    color: var(--accent);
-    font-weight: 600;
-  }
-
-  /* ── Error message ── */
-  #errMsg {
-    display: none;
-    color: #ff5555;
-    font-size: 13px;
-    margin-top: 16px;
-    text-align: center;
-  }
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#07071a;overflow:hidden;height:100vh;font-family:sans-serif;color:#eee}
+#canvas{position:fixed;inset:0;width:100%;height:100%}
+#camBox{position:fixed;bottom:12px;right:12px;width:140px;height:105px;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);background:#000;z-index:5}
+#video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
+#lc{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1)}
+#hud{position:fixed;top:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.08);border-radius:999px;padding:5px 14px;font-size:12px;color:rgba(255,255,255,0.55);z-index:10;backdrop-filter:blur(6px)}
+#dot{width:6px;height:6px;border-radius:50%;background:#444;flex-shrink:0;transition:background .3s}
+#dot.on{background:#7fffc4;box-shadow:0 0 5px #7fffc4}
+#dot.seek{background:#f90}
+#gbadge{position:fixed;top:12px;right:12px;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.08);border-radius:999px;padding:5px 14px;font-size:12px;color:#7fffc4;z-index:10;display:none}
+#ov{position:fixed;inset:0;background:rgba(7,7,26,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;gap:10px}
+.oi{font-size:52px;animation:fl 3s ease-in-out infinite}
+@keyframes fl{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.ot{font-size:20px;font-weight:600;color:#fff}
+.os{font-size:13px;color:rgba(255,255,255,0.4);text-align:center;max-width:280px;line-height:1.6;margin-bottom:8px}
+#sb{padding:11px 30px;background:transparent;color:#7fffc4;border:1px solid #7fffc4;border-radius:7px;font-size:14px;cursor:pointer;transition:background .2s,transform .15s}
+#sb:hover{background:rgba(127,255,196,0.1);transform:scale(1.03)}
+.gg{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:10px}
+.gc{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;min-width:86px}
+.ge{font-size:22px}
+.gm{font-size:12px;color:#7fffc4;font-weight:600}
+.gl{font-size:11px;color:rgba(255,255,255,0.4);text-align:center}
+#em{display:none;color:#ff5555;font-size:12px;margin-top:8px;text-align:center}
+#fps{position:fixed;bottom:12px;left:12px;font-size:10px;color:rgba(255,255,255,0.18);z-index:5}
 </style>
 </head>
 <body>
+<canvas id="canvas"></canvas>
 
-<header>
-  <h1>✋ জেশচার কন্ট্রোল</h1>
-  <span>HAND GESTURE PARTICLES</span>
-</header>
-
-<div id="stage">
-  <canvas id="particleCanvas"></canvas>
-
-  <div id="camWrap">
-    <video id="video" autoplay playsinline muted></video>
-    <canvas id="landmarkCanvas"></canvas>
-  </div>
-
-  <div id="statusPill">
-    <div id="statusDot"></div>
-    <span id="statusLabel">লোড হচ্ছে...</span>
-  </div>
-
-  <div id="gestureBadge"></div>
-  <div id="pCount"></div>
-
-  <!-- Start overlay -->
-  <div id="overlay">
-    <div class="ov-icon">✋</div>
-    <p class="ov-title">হাত দিয়ে কন্ট্রোল করুন</p>
-    <p class="ov-sub">ক্যামেরা অ্যাক্সেস দিলে হাতের ইশারায় পার্টিকেল অ্যানিমেশন কন্ট্রোল করা যাবে</p>
-    <button id="startBtn">📷 ক্যামেরা চালু করুন</button>
-    <div class="gesture-guide">
-      <div class="gcard">
-        <span class="emoji">✊</span>
-        <span class="gmode">বিস্ফোরণ</span>
-        <span class="glabel">মুষ্টি বন্ধ করুন</span>
-      </div>
-      <div class="gcard">
-        <span class="emoji">☝️</span>
-        <span class="gmode">আকর্ষণ</span>
-        <span class="glabel">১–২ আঙুল তুলুন</span>
-      </div>
-      <div class="gcard">
-        <span class="emoji">✋</span>
-        <span class="gmode">ঘূর্ণন</span>
-        <span class="glabel">হাত খুলে ধরুন</span>
-      </div>
-    </div>
-    <p id="errMsg"></p>
-  </div>
+<div id="camBox">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="lc"></canvas>
 </div>
 
-<!-- MediaPipe CDN -->
+<div id="hud"><div id="dot"></div><span id="sl">লোড হচ্ছে...</span></div>
+<div id="gbadge"></div>
+<div id="fps"></div>
+
+<div id="ov">
+  <div class="oi">✋</div>
+  <p class="ot">হাত দিয়ে কন্ট্রোল করুন</p>
+  <p class="os">ক্যামেরা অন করুন, তারপর হাতের ইশারায় পার্টিকেল কন্ট্রোল করুন</p>
+  <button id="sb">📷 ক্যামেরা চালু করুন</button>
+  <div class="gg">
+    <div class="gc"><span class="ge">✊</span><span class="gm">বিস্ফোরণ</span><span class="gl">মুষ্টি বন্ধ</span></div>
+    <div class="gc"><span class="ge">☝️</span><span class="gm">আকর্ষণ</span><span class="gl">১–২ আঙুল</span></div>
+    <div class="gc"><span class="ge">✋</span><span class="gm">ঘূর্ণন</span><span class="gl">খোলা হাত</span></div>
+  </div>
+  <p id="em"></p>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-
 <script>
-/* ─────────────────────────────────────────────
-   References
-───────────────────────────────────────────── */
-const pCanvas   = document.getElementById('particleCanvas');
-const pCtx      = pCanvas.getContext('2d');
-const lCanvas   = document.getElementById('landmarkCanvas');
-const lCtx      = lCanvas.getContext('2d');
-const video     = document.getElementById('video');
-const overlay   = document.getElementById('overlay');
-const startBtn  = document.getElementById('startBtn');
-const statusDot = document.getElementById('statusDot');
-const statusLbl = document.getElementById('statusLabel');
-const gBadge    = document.getElementById('gestureBadge');
-const pCount    = document.getElementById('pCount');
-const errMsg    = document.getElementById('errMsg');
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+const lc     = document.getElementById('lc');
+const lCtx   = lc.getContext('2d');
+const video  = document.getElementById('video');
+const ov     = document.getElementById('ov');
+const sb     = document.getElementById('sb');
+const dot    = document.getElementById('dot');
+const sl     = document.getElementById('sl');
+const gbadge = document.getElementById('gbadge');
+const fpsEl  = document.getElementById('fps');
+const em     = document.getElementById('em');
 
-let W, H;
-let particles   = [];
-let handPos     = null;
+let W = 0, H = 0;
+
+// Adaptive quality based on device capability
+const cores = navigator.hardwareConcurrency || 2;
+const small = window.innerWidth <= 480;
+let PARTICLE_COUNT = small ? 100 : (cores <= 4 ? 130 : 200);
+let skipFrames     = cores <= 2 ? 3 : (cores <= 4 ? 2 : 1);
+
+let handX = -1, handY = -1;
+let smoothHX = -1, smoothHY = -1;
 let gestureMode = 'none';
-let t           = 0;
+let t = 0, cursorPulse = 0;
 
-/* ─────────────────────────────────────────────
-   Resize
-───────────────────────────────────────────── */
+// FPS tracking
+let fps = 0, lastFpsTime = performance.now(), fpsFrames = 0;
+let lastTime = 0;
+
+// Typed arrays for particles (fast iteration, cache-friendly)
+const px  = new Float32Array(PARTICLE_COUNT);
+const py  = new Float32Array(PARTICLE_COUNT);
+const pvx = new Float32Array(PARTICLE_COUNT);
+const pvy = new Float32Array(PARTICLE_COUNT);
+const ph  = new Float32Array(PARTICLE_COUNT);
+const psz = new Float32Array(PARTICLE_COUNT);
+const pph = new Float32Array(PARTICLE_COUNT);
+const por = new Float32Array(PARTICLE_COUNT);
+const poa = new Float32Array(PARTICLE_COUNT);
+const pos = new Float32Array(PARTICLE_COUNT);
+
 function resize() {
-  const stage = document.getElementById('stage');
-  W = pCanvas.width  = stage.clientWidth;
-  H = pCanvas.height = stage.clientHeight;
-  lCanvas.width  = 180;
-  lCanvas.height = 135;
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  lc.width  = 140;
+  lc.height = 105;
 }
 resize();
-window.addEventListener('resize', () => { resize(); });
+window.addEventListener('resize', resize);
 
-/* ─────────────────────────────────────────────
-   Particle class
-───────────────────────────────────────────── */
-class Particle {
-  constructor() { this.spawn(); }
-
-  spawn() {
-    this.x  = Math.random() * W;
-    this.y  = Math.random() * H;
-    this.vx = (Math.random() - 0.5) * 1;
-    this.vy = (Math.random() - 0.5) * 1;
-    this.sz = Math.random() * 2.5 + 0.5;
-    this.hue   = 110 + Math.random() * 80;
-    this.alpha = Math.random() * 0.5 + 0.2;
-    this.phase = Math.random() * Math.PI * 2;
-    this.orbitR = Math.random() * Math.min(W, H) * 0.3 + 40;
-    this.orbitA = Math.random() * Math.PI * 2;
-    this.orbitS = (Math.random() - 0.5) * 0.03;
+function initParticles() {
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    px[i]  = Math.random() * W;
+    py[i]  = Math.random() * H;
+    pvx[i] = (Math.random() - 0.5) * 0.8;
+    pvy[i] = (Math.random() - 0.5) * 0.8;
+    ph[i]  = 100 + Math.random() * 80;
+    psz[i] = Math.random() * 2 + 0.8;
+    pph[i] = Math.random() * 6.28;
+    por[i] = 60 + Math.random() * Math.min(W, H) * 0.22;
+    poa[i] = Math.random() * 6.28;
+    pos[i] = (Math.random() - 0.5) * 0.025;
   }
-
-  update() {
-    const hp = handPos;
-
-    if (gestureMode === 'explode' && hp) {
-      const dx = this.x - hp.x * W;
-      const dy = this.y - hp.y * H;
-      const d  = Math.sqrt(dx * dx + dy * dy) + 1;
-      const f  = Math.min(500 / (d * d), 10);
-      this.vx += (dx / d) * f;
-      this.vy += (dy / d) * f;
-      this.vx *= 0.92;
-      this.vy *= 0.92;
-
-    } else if (gestureMode === 'attract' && hp) {
-      const dx = hp.x * W - this.x;
-      const dy = hp.y * H - this.y;
-      const d  = Math.sqrt(dx * dx + dy * dy) + 1;
-      const f  = Math.min(300 / (d + 1), 5);
-      this.vx += (dx / d) * f * 0.12;
-      this.vy += (dy / d) * f * 0.12;
-      this.vx *= 0.90;
-      this.vy *= 0.90;
-
-    } else if (gestureMode === 'spiral' && hp) {
-      this.orbitA += this.orbitS + 0.008;
-      const tx = hp.x * W + Math.cos(this.orbitA) * this.orbitR;
-      const ty = hp.y * H + Math.sin(this.orbitA) * this.orbitR;
-      this.vx += (tx - this.x) * 0.04;
-      this.vy += (ty - this.y) * 0.04;
-      this.vx *= 0.88;
-      this.vy *= 0.88;
-
-    } else {
-      // idle drift
-      this.vx += (Math.random() - 0.5) * 0.05;
-      this.vy += (Math.random() - 0.5) * 0.05;
-      this.vx *= 0.99;
-      this.vy *= 0.99;
-    }
-
-    this.x += this.vx;
-    this.y += this.vy;
-    this.phase += 0.03;
-
-    // wrap around edges
-    if (this.x < -60) this.x = W + 50;
-    if (this.x > W + 60) this.x = -50;
-    if (this.y < -60) this.y = H + 50;
-    if (this.y > H + 60) this.y = -50;
-  }
-
-  draw() {
-    const a = this.alpha * (0.7 + 0.3 * Math.sin(this.phase));
-    pCtx.beginPath();
-    pCtx.arc(this.x, this.y, this.sz, 0, Math.PI * 2);
-    pCtx.fillStyle = `hsla(${this.hue},85%,65%,${a})`;
-    pCtx.fill();
-  }
-}
-
-/* ─────────────────────────────────────────────
-   Init particles
-───────────────────────────────────────────── */
-function initParticles(n = 350) {
-  particles = Array.from({ length: n }, () => new Particle());
-  pCount.textContent = n + ' particles';
 }
 initParticles();
 
-/* ─────────────────────────────────────────────
-   Draw connection lines to hand
-───────────────────────────────────────────── */
+// Smooth hand lerp for fluid motion
+function lerpHand() {
+  if (handX < 0) return;
+  if (smoothHX < 0) { smoothHX = handX; smoothHY = handY; return; }
+  const s = 0.14;
+  smoothHX += (handX - smoothHX) * s;
+  smoothHY += (handY - smoothHY) * s;
+}
+
+function updateParticles() {
+  const hx = smoothHX * W;
+  const hy = smoothHY * H;
+  const hasHand = smoothHX >= 0;
+
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    let x = px[i], y = py[i], vx = pvx[i], vy = pvy[i];
+
+    if (hasHand && gestureMode === 'explode') {
+      const dx = x - hx, dy = y - hy;
+      const d2 = dx*dx + dy*dy + 1;
+      const d  = Math.sqrt(d2);
+      const f  = Math.min(400 / d2, 7);
+      vx += (dx / d) * f;
+      vy += (dy / d) * f;
+      vx *= 0.91; vy *= 0.91;
+
+    } else if (hasHand && gestureMode === 'attract') {
+      const dx = hx - x, dy = hy - y;
+      const d  = Math.sqrt(dx*dx + dy*dy) + 1;
+      const f  = Math.min(280 / d, 4.5);
+      vx += (dx / d) * f * 0.11;
+      vy += (dy / d) * f * 0.11;
+      vx *= 0.89; vy *= 0.89;
+
+    } else if (hasHand && gestureMode === 'spiral') {
+      poa[i] += pos[i] + 0.009;
+      const tx = hx + Math.cos(poa[i]) * por[i];
+      const ty = hy + Math.sin(poa[i]) * por[i];
+      vx += (tx - x) * 0.038;
+      vy += (ty - y) * 0.038;
+      vx *= 0.87; vy *= 0.87;
+
+    } else {
+      vx += (Math.random() - 0.5) * 0.04;
+      vy += (Math.random() - 0.5) * 0.04;
+      vx *= 0.985; vy *= 0.985;
+    }
+
+    x += vx; y += vy;
+    if (x < -50) x = W + 40;
+    else if (x > W + 50) x = -40;
+    if (y < -50) y = H + 40;
+    else if (y > H + 50) y = -40;
+
+    px[i] = x; py[i] = y; pvx[i] = vx; pvy[i] = vy;
+    pph[i] += 0.025;
+  }
+}
+
+function drawParticles() {
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const a = 0.35 + 0.3 * Math.sin(pph[i]);
+    ctx.beginPath();
+    ctx.arc(px[i], py[i], psz[i], 0, 6.2832);
+    ctx.fillStyle = `hsla(${ph[i]|0},82%,65%,${a})`;
+    ctx.fill();
+  }
+}
+
 function drawLines() {
-  if (!handPos) return;
-  const hx = handPos.x * W;
-  const hy = handPos.y * H;
-  for (let i = 0; i < particles.length; i += 2) {
-    const p = particles[i];
-    const dx = p.x - hx, dy = p.y - hy;
-    const d  = Math.sqrt(dx * dx + dy * dy);
-    if (d < 140) {
-      pCtx.beginPath();
-      pCtx.moveTo(hx, hy);
-      pCtx.lineTo(p.x, p.y);
-      pCtx.strokeStyle = `hsla(${p.hue},80%,65%,${(1 - d / 140) * 0.35})`;
-      pCtx.lineWidth = 0.6;
-      pCtx.stroke();
+  if (smoothHX < 0) return;
+  const hx = smoothHX * W, hy = smoothHY * H;
+  const THRESH = 110, T2 = THRESH * THRESH;
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i < PARTICLE_COUNT; i += 3) {
+    const dx = px[i] - hx, dy = py[i] - hy;
+    const d2 = dx*dx + dy*dy;
+    if (d2 < T2) {
+      const a = (1 - Math.sqrt(d2) / THRESH) * 0.28;
+      ctx.beginPath();
+      ctx.moveTo(hx, hy);
+      ctx.lineTo(px[i], py[i]);
+      ctx.strokeStyle = `hsla(${ph[i]|0},78%,62%,${a})`;
+      ctx.stroke();
     }
   }
 }
 
-/* ─────────────────────────────────────────────
-   Hand cursor
-───────────────────────────────────────────── */
-function drawHandCursor() {
-  if (!handPos) return;
-  const cx = handPos.x * W;
-  const cy = handPos.y * H;
-  const r  = 18 + 4 * Math.sin(t * 3);
-  pCtx.beginPath();
-  pCtx.arc(cx, cy, r, 0, Math.PI * 2);
-  pCtx.strokeStyle = 'rgba(127,255,196,0.55)';
-  pCtx.lineWidth = 1.5;
-  pCtx.stroke();
-
-  pCtx.beginPath();
-  pCtx.arc(cx, cy, 4, 0, Math.PI * 2);
-  pCtx.fillStyle = 'rgba(127,255,196,0.8)';
-  pCtx.fill();
+function drawCursor() {
+  if (smoothHX < 0) return;
+  cursorPulse += 0.06;
+  const cx = smoothHX * W, cy = smoothHY * H;
+  const r  = 14 + 3 * Math.sin(cursorPulse);
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, 6.2832);
+  ctx.strokeStyle = 'rgba(127,255,196,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, cy, 3.5, 0, 6.2832);
+  ctx.fillStyle = 'rgba(127,255,196,0.85)';
+  ctx.fill();
 }
 
-/* ─────────────────────────────────────────────
-   Main render loop
-───────────────────────────────────────────── */
-function animate() {
-  requestAnimationFrame(animate);
+function loop(now) {
+  requestAnimationFrame(loop);
+  const dt = now - lastTime;
+  if (dt < 14) return; // ~60fps cap, avoids over-rendering
+  lastTime = now;
+
+  fpsFrames++;
+  if (now - lastFpsTime > 1000) {
+    fps = fpsFrames; fpsFrames = 0; lastFpsTime = now;
+    fpsEl.textContent = fps + ' fps | ' + PARTICLE_COUNT + ' particles';
+  }
+
   t += 0.01;
+  lerpHand();
 
-  // Trail fade
-  pCtx.fillStyle = 'rgba(6,6,15,0.16)';
-  pCtx.fillRect(0, 0, W, H);
+  // Soft trail fade
+  ctx.fillStyle = 'rgba(7,7,26,0.17)';
+  ctx.fillRect(0, 0, W, H);
 
-  particles.forEach(p => { p.update(); p.draw(); });
+  updateParticles();
+  drawParticles();
   drawLines();
-  drawHandCursor();
+  drawCursor();
 }
-animate();
+requestAnimationFrame(loop);
 
-/* ─────────────────────────────────────────────
-   Gesture detection
-───────────────────────────────────────────── */
+/* ── Gesture detection ── */
 function detectGesture(lm) {
-  const up = (tip, mcp) => tip.y < mcp.y - 0.025;
-  const fingers = [
-    up(lm[8],  lm[5]),   // index
-    up(lm[12], lm[9]),   // middle
-    up(lm[16], lm[13]),  // ring
-    up(lm[20], lm[17])   // pinky
-  ];
-  const count = fingers.filter(Boolean).length;
-  if (count === 0) return 'explode';
-  if (count >= 3)  return 'spiral';
+  const up = (tip, mcp) => tip.y < mcp.y - 0.03;
+  let c = 0;
+  if (up(lm[8],  lm[5]))  c++;
+  if (up(lm[12], lm[9]))  c++;
+  if (up(lm[16], lm[13])) c++;
+  if (up(lm[20], lm[17])) c++;
+  if (c === 0) return 'explode';
+  if (c >= 3)  return 'spiral';
   return 'attract';
 }
 
-const gestureLabels = {
-  explode: '✊ বিস্ফোরণ',
-  attract: '☝️ আকর্ষণ',
-  spiral:  '✋ ঘূর্ণন',
-  none:    ''
-};
+const gLabels = { explode:'✊ বিস্ফোরণ', attract:'☝️ আকর্ষণ', spiral:'✋ ঘূর্ণন' };
 
-function applyGesture(g) {
-  gestureMode = g;
-  if (g !== 'none') {
-    gBadge.style.display = 'block';
-    gBadge.textContent   = gestureLabels[g] || g;
-  } else {
-    gBadge.style.display = 'none';
+/* ── Skeleton ── */
+const CONN = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],
+              [0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],
+              [0,17],[17,18],[18,19],[19,20]];
+
+function drawSkeleton(lm) {
+  lCtx.clearRect(0, 0, 140, 105);
+  lCtx.strokeStyle = 'rgba(127,255,196,0.45)';
+  lCtx.lineWidth = 1.2;
+  for (const [a, b] of CONN) {
+    lCtx.beginPath();
+    lCtx.moveTo((1 - lm[a].x) * 140, lm[a].y * 105);
+    lCtx.lineTo((1 - lm[b].x) * 140, lm[b].y * 105);
+    lCtx.stroke();
+  }
+  lCtx.fillStyle = 'rgba(127,255,196,0.85)';
+  for (const p of lm) {
+    lCtx.beginPath();
+    lCtx.arc((1 - p.x) * 140, p.y * 105, 2.5, 0, 6.2832);
+    lCtx.fill();
   }
 }
 
-/* ─────────────────────────────────────────────
-   Draw hand skeleton on landmark canvas
-───────────────────────────────────────────── */
-const CONNECTIONS = [
-  [0,1],[1,2],[2,3],[3,4],
-  [0,5],[5,6],[6,7],[7,8],
-  [0,9],[9,10],[10,11],[11,12],
-  [0,13],[13,14],[14,15],[15,16],
-  [0,17],[17,18],[18,19],[19,20]
-];
-
-function drawSkeleton(lm) {
-  lCtx.clearRect(0, 0, 180, 135);
-  CONNECTIONS.forEach(([a, b]) => {
-    lCtx.beginPath();
-    lCtx.moveTo((1 - lm[a].x) * 180, lm[a].y * 135);
-    lCtx.lineTo((1 - lm[b].x) * 180, lm[b].y * 135);
-    lCtx.strokeStyle = 'rgba(127,255,196,0.5)';
-    lCtx.lineWidth = 1.5;
-    lCtx.stroke();
-  });
-  lm.forEach(p => {
-    lCtx.beginPath();
-    lCtx.arc((1 - p.x) * 180, p.y * 135, 3, 0, Math.PI * 2);
-    lCtx.fillStyle = 'rgba(127,255,196,0.9)';
-    lCtx.fill();
-  });
-}
-
-/* ─────────────────────────────────────────────
-   Start camera + MediaPipe
-───────────────────────────────────────────── */
-startBtn.addEventListener('click', async () => {
-  startBtn.disabled    = true;
-  startBtn.textContent = 'অপেক্ষা করুন...';
-  statusLbl.textContent = 'ক্যামেরা চালু হচ্ছে...';
+/* ── Start ── */
+sb.addEventListener('click', async () => {
+  sb.disabled = true;
+  sb.textContent = 'অপেক্ষা করুন...';
+  sl.textContent = 'ক্যামেরা চালু হচ্ছে...';
 
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: 320, height: 240 },
+      video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } },
       audio: false
     });
     video.srcObject = stream;
     await new Promise(r => { video.onloadedmetadata = r; });
 
-    overlay.style.display = 'none';
-    statusDot.className   = 'warn';
-    statusLbl.textContent = 'হাত দেখান...';
+    ov.style.display = 'none';
+    dot.className = 'seek';
+    sl.textContent = 'হাত দেখান...';
 
-    /* MediaPipe Hands */
     const hands = new Hands({
       locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
     });
-
     hands.setOptions({
       maxNumHands:            1,
       modelComplexity:        0,
-      minDetectionConfidence: 0.65,
-      minTrackingConfidence:  0.55
+      minDetectionConfidence: 0.6,
+      minTrackingConfidence:  0.5
     });
 
     hands.onResults(results => {
       if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-        const lm  = results.multiHandLandmarks[0];
-        const avg = arr => arr.reduce((s, v) => s + v, 0) / arr.length;
-        handPos = {
-          x: 1 - avg(lm.map(p => p.x)),
-          y: avg(lm.map(p => p.y))
-        };
-        applyGesture(detectGesture(lm));
+        const lm = results.multiHandLandmarks[0];
+        handX = 1 - lm[0].x;
+        handY = lm[0].y;
+        gestureMode = detectGesture(lm);
+        gbadge.style.display = 'block';
+        gbadge.textContent   = gLabels[gestureMode] || '';
         drawSkeleton(lm);
-        statusDot.className   = 'active';
-        statusLbl.textContent = 'হাত শনাক্ত ✓';
+        dot.className  = 'on';
+        sl.textContent = 'হাত শনাক্ত ✓';
       } else {
-        lCtx.clearRect(0, 0, 180, 135);
-        handPos = null;
-        applyGesture('none');
-        statusDot.className   = 'warn';
-        statusLbl.textContent = 'হাত দেখান...';
+        lCtx.clearRect(0, 0, 140, 105);
+        handX = handY = -1;
+        smoothHX = smoothHY = -1;
+        gestureMode = 'none';
+        gbadge.style.display = 'none';
+        dot.className  = 'seek';
+        sl.textContent = 'হাত দেখান...';
       }
     });
 
+    let camFrame = 0;
     const cam = new Camera(video, {
-      onFrame: async () => { await hands.send({ image: video }); },
+      onFrame: async () => {
+        camFrame++;
+        if (camFrame % skipFrames === 0) {
+          await hands.send({ image: video });
+        }
+      },
       width: 320, height: 240
     });
     cam.start();
 
   } catch (e) {
-    errMsg.style.display  = 'block';
-    errMsg.textContent    = '⚠️ ক্যামেরা অ্যাক্সেস পাওয়া যায়নি। পারমিশন দিন।';
-    startBtn.disabled     = false;
-    startBtn.textContent  = '📷 আবার চেষ্টা করুন';
-    statusLbl.textContent = 'এরর';
+    em.style.display  = 'block';
+    em.textContent    = '⚠️ ক্যামেরা পারমিশন দিন এবং আবার চেষ্টা করুন।';
+    sb.disabled       = false;
+    sb.textContent    = '📷 আবার চেষ্টা করুন';
+    sl.textContent    = 'এরর';
     console.error(e);
   }
 });
