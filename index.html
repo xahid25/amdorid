@@ -7,208 +7,253 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#06060f;font-family:sans-serif;color:#eee}
-
 #canvas{position:fixed;inset:0;width:100%;height:100%;z-index:0}
 
-/* webcam preview */
+/* camera preview box */
 #camBox{
   position:fixed;bottom:14px;right:14px;
-  width:150px;height:112px;
-  border-radius:8px;overflow:hidden;
+  width:148px;height:110px;
+  border-radius:9px;overflow:hidden;
   border:1px solid rgba(255,255,255,0.1);
-  background:#000;z-index:10
+  background:#000;z-index:10;
+  box-shadow:0 4px 20px rgba(0,0,0,0.5)
 }
-#camBox video,#camBox canvas{
-  position:absolute;inset:0;
-  width:100%;height:100%;
-  object-fit:cover
-}
+#camBox>*{position:absolute;inset:0;width:100%!important;height:100%!important;object-fit:cover!important;max-width:unset!important;max-height:unset!important}
 
-/* HUD pill */
+/* top HUD */
 #hud{
   position:fixed;top:14px;left:50%;transform:translateX(-50%);
   display:flex;align-items:center;gap:8px;
-  background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.08);
+  background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.08);
   border-radius:999px;padding:5px 16px;
   font-size:12px;color:rgba(255,255,255,0.5);
-  z-index:10;white-space:nowrap
+  z-index:10;white-space:nowrap;backdrop-filter:blur(6px)
 }
 #dot{width:7px;height:7px;border-radius:50%;background:#444;flex-shrink:0;transition:background .3s}
 #dot.track{background:#7fffc4;box-shadow:0 0 6px #7fffc4}
-#dot.cal{background:#f90;animation:blink .7s infinite}
+#dot.cal{background:#f90;animation:bl .7s infinite}
 #dot.err{background:#f55}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:.3}}
 
-/* blink badge */
-#blinkBadge{
-  position:fixed;top:14px;right:14px;
-  background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.08);
-  border-radius:999px;padding:5px 14px;
-  font-size:12px;color:#7fffc4;z-index:10;display:none
-}
-
-/* mode badge */
+/* mode badge bottom-left */
 #modeBadge{
   position:fixed;bottom:14px;left:14px;
   background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.08);
   border-radius:8px;padding:8px 14px;
-  font-size:12px;color:#fff;z-index:10;line-height:1.6;display:none
+  font-size:12px;z-index:10;display:none;line-height:1.7
 }
-#modeBadge .ml{color:rgba(255,255,255,0.4);font-size:11px}
-#modeBadge .mv{color:#7fffc4;font-weight:600}
+#modeBadge .ml{color:rgba(255,255,255,0.35);font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+#modeBadge .mv{color:#7fffc4;font-weight:700;font-size:14px}
 
-/* ── OVERLAY ── */
+/* blink toast */
+#toast{
+  position:fixed;top:54px;left:50%;transform:translateX(-50%);
+  background:rgba(127,255,196,0.12);border:1px solid rgba(127,255,196,0.25);
+  border-radius:999px;padding:5px 16px;
+  font-size:12px;color:#7fffc4;z-index:20;
+  opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap
+}
+
+/* gaze cursor */
+#gc{
+  position:fixed;pointer-events:none;z-index:6;
+  width:36px;height:36px;
+  border-radius:50%;
+  border:2px solid rgba(127,255,196,0.55);
+  background:rgba(127,255,196,0.08);
+  transform:translate(-50%,-50%);
+  display:none;
+  transition:width .06s,height .06s
+}
+#gc::after{
+  content:'';position:absolute;
+  top:50%;left:50%;transform:translate(-50%,-50%);
+  width:7px;height:7px;border-radius:50%;
+  background:rgba(127,255,196,0.9)
+}
+
+/* calibration dot */
+#calDot{
+  position:fixed;
+  width:24px;height:24px;border-radius:50%;
+  background:#7fffc4;border:2px solid #fff;
+  box-shadow:0 0 0 6px rgba(127,255,196,0.2),0 0 18px rgba(127,255,196,0.6);
+  transform:translate(-50%,-50%);
+  z-index:40;display:none;pointer-events:none;
+  transition:left .35s cubic-bezier(.4,0,.2,1),top .35s cubic-bezier(.4,0,.2,1)
+}
+#calProgress{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:rgba(0,0,0,0.72);border:1px solid rgba(255,255,255,0.1);
+  border-radius:12px;padding:18px 28px;
+  font-size:13px;color:rgba(255,255,255,0.65);
+  text-align:center;line-height:1.8;z-index:41;display:none;pointer-events:none
+}
+
+/* start overlay */
 #ov{
   position:fixed;inset:0;
   background:rgba(6,6,15,0.96);
   display:flex;flex-direction:column;
   align-items:center;justify-content:center;
-  z-index:30;gap:0;padding:24px
+  z-index:30;padding:24px;gap:0
 }
-.oi{font-size:56px;margin-bottom:16px;animation:fl 3s ease-in-out infinite}
+.oi{font-size:58px;margin-bottom:18px;animation:fl 3s ease-in-out infinite}
 @keyframes fl{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
 .ot{font-size:22px;font-weight:700;color:#fff;margin-bottom:8px;text-align:center}
 .os{font-size:13px;color:rgba(255,255,255,0.4);text-align:center;max-width:300px;line-height:1.7;margin-bottom:28px}
-
 #startBtn{
-  padding:12px 34px;background:transparent;
-  color:#7fffc4;border:1px solid #7fffc4;
-  border-radius:8px;font-size:15px;cursor:pointer;
-  transition:background .2s,transform .15s;margin-bottom:28px
+  padding:12px 34px;background:transparent;color:#7fffc4;
+  border:1px solid #7fffc4;border-radius:8px;font-size:15px;
+  cursor:pointer;transition:background .2s,transform .15s;margin-bottom:28px
 }
 #startBtn:hover{background:rgba(127,255,196,0.1);transform:scale(1.03)}
-#startBtn:active{transform:scale(0.97)}
-#startBtn:disabled{opacity:.5;cursor:not-allowed;transform:none}
-
-.guide{
-  display:grid;grid-template-columns:repeat(3,1fr);
-  gap:10px;width:100%;max-width:340px;margin-bottom:16px
-}
-.gc{
-  display:flex;flex-direction:column;align-items:center;gap:5px;
-  padding:12px 8px;background:rgba(255,255,255,0.04);
-  border:1px solid rgba(255,255,255,0.07);border-radius:8px
-}
-.ge{font-size:24px}
+#startBtn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.guide{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:340px;margin-bottom:16px}
+.gc2{display:flex;flex-direction:column;align-items:center;gap:5px;padding:11px 8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:8px}
+.ge{font-size:22px}
 .gm{font-size:11px;color:#7fffc4;font-weight:600;text-align:center}
 .gl{font-size:10px;color:rgba(255,255,255,0.35);text-align:center;line-height:1.4}
-
-#errMsg{display:none;color:#f55;font-size:12px;text-align:center;max-width:280px;line-height:1.5}
-
-/* ── CALIBRATION overlay ── */
-#calOv{
-  position:fixed;inset:0;
-  background:rgba(6,6,15,0.85);
-  z-index:25;display:none;
-  pointer-events:none
-}
-#calMsg{
-  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-  background:rgba(0,0,0,0.7);border:1px solid rgba(255,255,255,0.1);
-  border-radius:12px;padding:18px 28px;
-  font-size:14px;color:rgba(255,255,255,0.7);
-  text-align:center;line-height:1.7;z-index:26;
-  display:none;pointer-events:none
-}
-.calDot{
-  position:fixed;width:22px;height:22px;
-  border-radius:50%;background:#7fffc4;
-  border:2px solid #fff;z-index:26;
-  transform:translate(-50%,-50%);
-  display:none;pointer-events:none;
-  box-shadow:0 0 12px rgba(127,255,196,0.7);
-  animation:pulse .8s ease-in-out infinite
-}
-@keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.3)}}
-
-/* gaze cursor */
-#gazeCursor{
-  position:fixed;
-  width:28px;height:28px;
-  border-radius:50%;
-  border:2px solid rgba(127,255,196,0.6);
-  background:rgba(127,255,196,0.12);
-  pointer-events:none;z-index:5;
-  transform:translate(-50%,-50%);
-  display:none;transition:width .1s,height .1s
-}
-#gazeCursor::after{
-  content:'';position:absolute;
-  top:50%;left:50%;transform:translate(-50%,-50%);
-  width:6px;height:6px;border-radius:50%;
-  background:rgba(127,255,196,0.9)
-}
+#errMsg{display:none;color:#f55;font-size:12px;margin-top:10px;text-align:center;max-width:280px;line-height:1.5}
 </style>
 </head>
 <body>
 
 <canvas id="canvas"></canvas>
-
-<!-- camera preview -->
-<div id="camBox">
-  <!-- webgazer injects video+canvas here automatically -->
-</div>
-
+<div id="camBox"></div>
 <div id="hud"><div id="dot"></div><span id="sl">লোড হচ্ছে...</span></div>
-<div id="blinkBadge"></div>
-<div id="modeBadge">
-  <div class="ml">মোড</div>
-  <div class="mv" id="modeVal">—</div>
-</div>
+<div id="toast"></div>
+<div id="modeBadge"><div class="ml">মোড</div><div class="mv" id="modeVal">—</div></div>
+<div id="gc"></div>
+<div id="calDot"></div>
+<div id="calProgress"></div>
 
-<!-- gaze cursor -->
-<div id="gazeCursor"></div>
-
-<!-- calibration dot -->
-<div class="calDot" id="calDot"></div>
-
-<!-- calibration overlay -->
-<div id="calOv"></div>
-<div id="calMsg"></div>
-
-<!-- start overlay -->
 <div id="ov">
   <div class="oi">👁️</div>
   <p class="ot">চোখ দিয়ে কন্ট্রোল করুন</p>
-  <p class="os">আপনার চোখের দিক দেখে পার্টিকেল কন্ট্রোল হবে। চোখ বন্ধ করলে মোড পরিবর্তন হবে।</p>
+  <p class="os">চোখ যেদিকে যাবে পার্টিকেল সেদিকে যাবে। ক্যালিব্রেশন করলে একদম সঠিক হবে।</p>
   <button id="startBtn">👁️ চালু করুন</button>
   <div class="guide">
-    <div class="gc"><span class="ge">👁️</span><span class="gm">গেজ</span><span class="gl">চোখ যেদিকে পার্টিকেল সেদিকে</span></div>
-    <div class="gc"><span class="ge">😑</span><span class="gm">দীর্ঘ পলক</span><span class="gl">মোড পরিবর্তন</span></div>
-    <div class="gc"><span class="ge">😤</span><span class="gm">উপরে তাকান</span><span class="gl">বিস্ফোরণ</span></div>
+    <div class="gc2"><span class="ge">👁️</span><span class="gm">গেজ</span><span class="gl">চোখ যেদিকে পার্টিকেল সেদিকে</span></div>
+    <div class="gc2"><span class="ge">😑</span><span class="gm">লম্বা পলক</span><span class="gl">মোড পরিবর্তন</span></div>
+    <div class="gc2"><span class="ge">⬆️</span><span class="gm">উপরে তাকান</span><span class="gl">বিস্ফোরণ</span></div>
   </div>
   <p id="errMsg"></p>
 </div>
 
-<!-- WebGazer -->
 <script src="https://cdn.jsdelivr.net/npm/webgazer@2.1.0/dist/webgazer.min.js"></script>
 <script>
-/* ═══════════════════════════════════════════
-   CANVAS + RESIZE
-═══════════════════════════════════════════ */
-const canvas = document.getElementById('canvas');
-const ctx    = canvas.getContext('2d');
+/* ════════════════════════════════════════════
+   CANVAS
+════════════════════════════════════════════ */
+const CV  = document.getElementById('canvas');
+const ctx = CV.getContext('2d');
 let W, H;
+function resize(){ W = CV.width = innerWidth; H = CV.height = innerHeight; }
+resize(); addEventListener('resize', resize);
 
-function resize() {
-  W = canvas.width  = window.innerWidth;
-  H = canvas.height = window.innerHeight;
+/* ════════════════════════════════════════════
+   ULTRA-SMOOTH GAZE TRACKER
+   - Ring buffer of last 6 raw samples
+   - Weighted average (newer = heavier)
+   - Velocity prediction: extrapolate ahead by ~16ms
+   - Result: cursor leads the eye, feels instant
+════════════════════════════════════════════ */
+const RING  = 6;
+const rxBuf = new Float64Array(RING);
+const ryBuf = new Float64Array(RING);
+const rtBuf = new Float64Array(RING);
+let   rHead = 0, rFilled = 0;
+
+// smoothed output
+let gX = -1, gY = -1;
+// previous smoothed for velocity
+let pgX = -1, pgY = -1;
+let gVX = 0,  gVY = 0;  // velocity px/ms
+let gazeReady = false;
+
+// weights: newest sample = highest weight
+const W6 = [1, 2, 3, 5, 8, 13]; // fibonacci-ish
+const W6sum = W6.reduce((a,b)=>a+b,0);
+
+function pushGaze(x, y) {
+  rxBuf[rHead] = x;
+  ryBuf[rHead] = y;
+  rtBuf[rHead] = performance.now();
+  rHead = (rHead + 1) % RING;
+  if (rFilled < RING) rFilled++;
 }
-resize();
-window.addEventListener('resize', resize);
 
-/* ═══════════════════════════════════════════
-   ADAPTIVE QUALITY
-═══════════════════════════════════════════ */
+function computeGaze() {
+  if (rFilled === 0) return;
+  const n   = rFilled;
+  let wx = 0, wy = 0, wt = 0;
+  for (let i = 0; i < n; i++) {
+    // index relative to head (0=oldest in filled window)
+    const idx = (rHead - n + i + RING) % RING;
+    const w   = W6[W6.length - n + i] || 1;
+    wx += rxBuf[idx] * w;
+    wy += ryBuf[idx] * w;
+    wt += w;
+  }
+  const sx = wx / wt;
+  const sy = wy / wt;
+
+  // velocity
+  if (gX >= 0) {
+    gVX = gVX * 0.6 + (sx - gX) * 0.4;
+    gVY = gVY * 0.6 + (sy - gY) * 0.4;
+  }
+
+  pgX = gX; pgY = gY;
+  gX  = sx;  gY  = sy;
+}
+
+// Called every rAF — predict forward to compensate latency (~50ms)
+const PREDICT_MS = 52;
+function predictedGaze() {
+  if (gX < 0) return { x: -1, y: -1 };
+  return {
+    x: Math.max(0, Math.min(W, gX + gVX * PREDICT_MS)),
+    y: Math.max(0, Math.min(H, gY + gVY * PREDICT_MS))
+  };
+}
+
+/* ════════════════════════════════════════════
+   DISPLAY CURSOR (separate from predicted — DOM el)
+   Uses CSS transition for extra smoothness
+════════════════════════════════════════════ */
+const gcEl = document.getElementById('gc');
+let   dcX  = -1, dcY = -1; // display cursor
+
+function moveCursor(x, y) {
+  if (x < 0) { gcEl.style.display = 'none'; return; }
+  gcEl.style.display = 'block';
+  // direct style — no CSS transition on position (too laggy), we lerp in JS
+  gcEl.style.left = x + 'px';
+  gcEl.style.top  = y + 'px';
+}
+
+// Lerp display cursor toward predicted gaze
+let dcLerpX = -1, dcLerpY = -1;
+function updateDisplayCursor(px, py) {
+  if (px < 0) { moveCursor(-1,-1); return; }
+  if (dcLerpX < 0) { dcLerpX = px; dcLerpY = py; }
+  // very aggressive lerp = 0.45 → almost instant but no jitter
+  const a = 0.45;
+  dcLerpX += (px - dcLerpX) * a;
+  dcLerpY += (py - dcLerpY) * a;
+  moveCursor(dcLerpX, dcLerpY);
+}
+
+/* ════════════════════════════════════════════
+   PARTICLES (typed arrays, adaptive count)
+════════════════════════════════════════════ */
 const cores = navigator.hardwareConcurrency || 2;
-const small = window.innerWidth <= 480;
-const N     = small ? 90 : (cores <= 4 ? 130 : 200);
+const N     = innerWidth <= 480 ? 90 : (cores <= 4 ? 140 : 220);
 
-/* ═══════════════════════════════════════════
-   PARTICLES (typed arrays)
-═══════════════════════════════════════════ */
-const px  = new Float32Array(N);
-const py  = new Float32Array(N);
+const px_ = new Float32Array(N);
+const py_ = new Float32Array(N);
 const pvx = new Float32Array(N);
 const pvy = new Float32Array(N);
 const ph  = new Float32Array(N);
@@ -220,383 +265,289 @@ const pos = new Float32Array(N);
 
 function initP() {
   for (let i = 0; i < N; i++) {
-    px[i]  = Math.random() * W;
-    py[i]  = Math.random() * H;
-    pvx[i] = (Math.random() - 0.5) * 0.7;
-    pvy[i] = (Math.random() - 0.5) * 0.7;
-    ph[i]  = 140 + Math.random() * 100;
-    psz[i] = Math.random() * 2.2 + 0.7;
-    pph[i] = Math.random() * 6.28;
-    por[i] = 55 + Math.random() * Math.min(W, H) * 0.22;
-    poa[i] = Math.random() * 6.28;
-    pos[i] = (Math.random() - 0.5) * 0.025;
+    px_[i] = Math.random()*W; py_[i] = Math.random()*H;
+    pvx[i] = (Math.random()-.5)*.7; pvy[i] = (Math.random()-.5)*.7;
+    ph[i]  = 130 + Math.random()*110;
+    psz[i] = Math.random()*2+.8;
+    pph[i] = Math.random()*6.28;
+    por[i] = 55 + Math.random()*Math.min(W,H)*.22;
+    poa[i] = Math.random()*6.28;
+    pos[i] = (Math.random()-.5)*.026;
   }
 }
 initP();
 
-/* ═══════════════════════════════════════════
-   GAZE STATE
-═══════════════════════════════════════════ */
-let gazeRawX = -1, gazeRawY = -1;   // raw from webgazer
-let gazeX    = -1, gazeY    = -1;   // smoothed
-let gazeActive = false;
+/* ════════════════════════════════════════════
+   MODE
+════════════════════════════════════════════ */
+const MODES = ['আকর্ষণ 🌀','ঘূর্ণন 🌊','বিস্ফোরণ 💥','বিকর্ষণ ⚡'];
+let mode = 0, lastMode = -1;
 
-// Smooth gaze with lerp
-function lerpGaze() {
-  if (gazeRawX < 0) return;
-  const s = 0.12;
-  if (gazeX < 0) { gazeX = gazeRawX; gazeY = gazeRawY; return; }
-  gazeX += (gazeRawX - gazeX) * s;
-  gazeY += (gazeRawY - gazeY) * s;
+function nextMode() {
+  mode = (mode+1) % MODES.length;
+  showToast('মোড: ' + MODES[mode]);
 }
 
-/* ═══════════════════════════════════════════
-   MODE SYSTEM
-   0 = attract  1 = spiral  2 = explode  3 = repel
-═══════════════════════════════════════════ */
-const MODES      = ['আকর্ষণ 🌀','ঘূর্ণন 🌊','বিস্ফোরণ 💥','বিকর্ষণ ⚡'];
-let   currentMode = 0;
-let   lastMode    = -1;
-
-// Blink detection via face-api or simple brightness — we use webgazer's
-// built-in eye data. We track eye openness via a simple heuristic.
-let blinkStart    = 0;
-let blinkDetected = false;
-let lastBlinkTime = 0;
-const LONG_BLINK  = 400; // ms — longer than this = mode change
-const BLINK_COOL  = 800; // cooldown between mode changes
-
-// Zone detection: where is the gaze on screen?
-// Top 20% = explode trigger
-let gazeZone = 'center'; // 'top','center','bottom','left','right'
-
-function getZone(x, y) {
-  if (y < H * 0.2)  return 'top';
-  if (y > H * 0.8)  return 'bottom';
-  if (x < W * 0.15) return 'left';
-  if (x > W * 0.85) return 'right';
-  return 'center';
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.opacity = '1';
+  clearTimeout(t._t);
+  t._t = setTimeout(()=>{ t.style.opacity='0'; }, 1600);
 }
 
-/* ═══════════════════════════════════════════
-   PARTICLE UPDATE
-═══════════════════════════════════════════ */
-function updateP() {
-  if (!gazeActive || gazeX < 0) {
-    // idle drift
-    for (let i = 0; i < N; i++) {
-      pvx[i] += (Math.random() - 0.5) * 0.04;
-      pvy[i] += (Math.random() - 0.5) * 0.04;
-      pvx[i] *= 0.985; pvy[i] *= 0.985;
-      px[i] += pvx[i]; py[i] += pvy[i];
-      if (px[i] < -50) px[i] = W + 40;
-      else if (px[i] > W + 50) px[i] = -40;
-      if (py[i] < -50) py[i] = H + 40;
-      else if (py[i] > H + 50) py[i] = -40;
-      pph[i] += 0.025;
+/* ════════════════════════════════════════════
+   BLINK DETECTION (brightness sampling)
+════════════════════════════════════════════ */
+let blinkCanvas, blinkCtx;
+let blinkOpen    = true;
+let blinkStart   = 0;
+let lastBlinkEnd = 0;
+let eyeBrightEMA = 200; // exponential moving average of brightness
+
+function setupBlink(vid) {
+  blinkCanvas = document.createElement('canvas');
+  blinkCanvas.width = 40; blinkCanvas.height = 16;
+  blinkCtx = blinkCanvas.getContext('2d', { willReadFrequently: true });
+  blinkLoop(vid);
+}
+
+function blinkLoop(vid) {
+  requestAnimationFrame(()=>blinkLoop(vid));
+  if (!vid || vid.readyState < 2) return;
+  try {
+    // sample eye-region: center 40% width, top 35% height
+    const sw = vid.videoWidth  * 0.4;
+    const sh = vid.videoHeight * 0.3;
+    const sx = vid.videoWidth  * 0.3;
+    const sy = vid.videoHeight * 0.05;
+    blinkCtx.drawImage(vid, sx, sy, sw, sh, 0, 0, 40, 16);
+    const d = blinkCtx.getImageData(0,0,40,16).data;
+    let s = 0, cnt = 0;
+    for (let i=0; i<d.length; i+=8){ s += d[i]; cnt++; }
+    const bright = s / cnt;
+    eyeBrightEMA = eyeBrightEMA * 0.88 + bright * 0.12;
+
+    const closed = bright < eyeBrightEMA * 0.76;
+    const now    = performance.now();
+
+    if (closed && blinkOpen) {
+      blinkOpen  = false;
+      blinkStart = now;
+    } else if (!closed && !blinkOpen) {
+      blinkOpen = true;
+      const dur = now - blinkStart;
+      if (dur > 380 && now - lastBlinkEnd > 700) {
+        lastBlinkEnd = now;
+        nextMode();
+      }
     }
-    return;
-  }
+  } catch(e){}
+}
 
-  const gx = gazeX, gy = gazeY;
-  const mode = (gazeZone === 'top') ? 2 : currentMode; // top gaze always explode
+/* ════════════════════════════════════════════
+   PARTICLE PHYSICS
+════════════════════════════════════════════ */
+function updateP(cx, cy) {
+  const has = cx >= 0;
+  const top = has && cy < H * 0.18; // looking at top = explode
+  const m   = top ? 2 : mode;
 
-  for (let i = 0; i < N; i++) {
-    let x = px[i], y = py[i], vx = pvx[i], vy = pvy[i];
+  for (let i=0; i<N; i++) {
+    let x=px_[i], y=py_[i], vx=pvx[i], vy=pvy[i];
 
-    if (mode === 0) { // attract
-      const dx = gx - x, dy = gy - y;
-      const d  = Math.sqrt(dx*dx + dy*dy) + 1;
-      const f  = Math.min(260 / d, 4.5);
-      vx += (dx/d)*f*0.1; vy += (dy/d)*f*0.1;
-      vx *= 0.9; vy *= 0.9;
-
-    } else if (mode === 1) { // spiral
-      poa[i] += pos[i] + 0.009;
-      const tx = gx + Math.cos(poa[i]) * por[i];
-      const ty = gy + Math.sin(poa[i]) * por[i];
-      vx += (tx - x) * 0.036; vy += (ty - y) * 0.036;
-      vx *= 0.87; vy *= 0.87;
-
-    } else if (mode === 2) { // explode
-      const dx = x - gx, dy = y - gy;
-      const d2 = dx*dx + dy*dy + 1;
-      const d  = Math.sqrt(d2);
-      const f  = Math.min(420 / d2, 8);
-      vx += (dx/d)*f; vy += (dy/d)*f;
-      vx *= 0.9; vy *= 0.9;
-
-    } else if (mode === 3) { // repel gentle
-      const dx = x - gx, dy = y - gy;
-      const d  = Math.sqrt(dx*dx + dy*dy) + 1;
-      const f  = Math.min(180 / d, 3);
-      vx += (dx/d)*f*0.08; vy += (dy/d)*f*0.08;
-      vx *= 0.93; vy *= 0.93;
+    if (!has) {
+      vx += (Math.random()-.5)*.04;
+      vy += (Math.random()-.5)*.04;
+      vx *= .985; vy *= .985;
+    } else if (m===0) { // attract
+      const dx=cx-x, dy=cy-y, d=Math.sqrt(dx*dx+dy*dy)+1;
+      const f=Math.min(270/d,4.8);
+      vx += dx/d*f*.11; vy += dy/d*f*.11;
+      vx *= .89; vy *= .89;
+    } else if (m===1) { // spiral
+      poa[i] += pos[i]+.009;
+      const tx=cx+Math.cos(poa[i])*por[i];
+      const ty=cy+Math.sin(poa[i])*por[i];
+      vx += (tx-x)*.038; vy += (ty-y)*.038;
+      vx *= .87; vy *= .87;
+    } else if (m===2) { // explode
+      const dx=x-cx, dy=y-cy;
+      const d2=dx*dx+dy*dy+1, d=Math.sqrt(d2);
+      const f=Math.min(440/d2,8);
+      vx += dx/d*f; vy += dy/d*f;
+      vx *= .9; vy *= .9;
+    } else { // repel gentle
+      const dx=x-cx, dy=y-cy, d=Math.sqrt(dx*dx+dy*dy)+1;
+      const f=Math.min(190/d,3.2);
+      vx += dx/d*f*.08; vy += dy/d*f*.08;
+      vx *= .93; vy *= .93;
     }
 
-    x += vx; y += vy;
-    if (x < -50) x = W + 40; else if (x > W + 50) x = -40;
-    if (y < -50) y = H + 40; else if (y > H + 50) y = -40;
-    px[i] = x; py[i] = y; pvx[i] = vx; pvy[i] = vy;
-    pph[i] += 0.025;
+    x+=vx; y+=vy;
+    if (x<-50) x=W+40; else if (x>W+50) x=-40;
+    if (y<-50) y=H+40; else if (y>H+50) y=-40;
+    px_[i]=x; py_[i]=y; pvx[i]=vx; pvy[i]=vy;
+    pph[i]+=.025;
   }
 }
 
-/* ═══════════════════════════════════════════
-   DRAW
-═══════════════════════════════════════════ */
-function drawP() {
-  for (let i = 0; i < N; i++) {
-    const a = 0.32 + 0.28 * Math.sin(pph[i]);
+function drawP(cx, cy) {
+  for (let i=0; i<N; i++) {
+    const a = .32 + .28*Math.sin(pph[i]);
     ctx.beginPath();
-    ctx.arc(px[i], py[i], psz[i], 0, 6.2832);
-    ctx.fillStyle = `hsla(${ph[i]|0},84%,64%,${a})`;
+    ctx.arc(px_[i], py_[i], psz[i], 0, 6.2832);
+    ctx.fillStyle = `hsla(${ph[i]|0},84%,65%,${a})`;
     ctx.fill();
   }
-}
-
-function drawLines() {
-  if (!gazeActive || gazeX < 0) return;
-  const T = 115, T2 = T*T;
-  ctx.lineWidth = 0.45;
-  for (let i = 0; i < N; i += 3) {
-    const dx = px[i] - gazeX, dy = py[i] - gazeY;
-    const d2 = dx*dx + dy*dy;
-    if (d2 < T2) {
-      const a = (1 - Math.sqrt(d2)/T) * 0.28;
-      ctx.beginPath();
-      ctx.moveTo(gazeX, gazeY);
-      ctx.lineTo(px[i], py[i]);
-      ctx.strokeStyle = `hsla(${ph[i]|0},80%,62%,${a})`;
-      ctx.stroke();
+  // connection lines to gaze point
+  if (cx < 0) return;
+  const T=115, T2=T*T;
+  ctx.lineWidth = .45;
+  for (let i=0; i<N; i+=3) {
+    const dx=px_[i]-cx, dy=py_[i]-cy, d2=dx*dx+dy*dy;
+    if (d2<T2) {
+      const a=(1-Math.sqrt(d2)/T)*.28;
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(px_[i],py_[i]);
+      ctx.strokeStyle=`hsla(${ph[i]|0},80%,62%,${a})`; ctx.stroke();
     }
   }
 }
 
-let cp = 0;
-function drawGazeCursor() {
-  if (!gazeActive || gazeX < 0) return;
-  const el = document.getElementById('gazeCursor');
-  el.style.display = 'block';
-  el.style.left = gazeX + 'px';
-  el.style.top  = gazeY + 'px';
-
-  // pulse ring on canvas
-  cp += 0.07;
-  const r = 18 + 4 * Math.sin(cp);
-  ctx.beginPath();
-  ctx.arc(gazeX, gazeY, r, 0, 6.2832);
-  ctx.strokeStyle = 'rgba(127,255,196,0.45)';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
+let cp=0;
+function drawCursorRing(cx, cy) {
+  if (cx<0) return;
+  cp += .07;
+  const r = 17 + 3.5*Math.sin(cp);
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.2832);
+  ctx.strokeStyle='rgba(127,255,196,0.42)'; ctx.lineWidth=1.5; ctx.stroke();
 }
 
-/* ═══════════════════════════════════════════
-   ZONE HIGHLIGHT (subtle)
-═══════════════════════════════════════════ */
-function drawZoneHints() {
-  // Top zone = explode hint
-  ctx.fillStyle = 'rgba(127,255,196,0.018)';
-  ctx.fillRect(0, 0, W, H * 0.2);
-  ctx.fillStyle = 'rgba(255,255,255,0.012)';
-  ctx.font = '11px sans-serif';
-  ctx.fillStyle = 'rgba(127,255,196,0.18)';
-  ctx.textAlign = 'center';
-  ctx.fillText('↑ এখানে তাকান = বিস্ফোরণ', W/2, 18);
+function drawZoneHint() {
+  ctx.fillStyle='rgba(127,255,196,0.013)';
+  ctx.fillRect(0,0,W,H*.18);
+  ctx.fillStyle='rgba(127,255,196,0.16)';
+  ctx.font='10px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('↑ উপরে তাকান = বিস্ফোরণ', W/2, 14);
 }
 
-/* ═══════════════════════════════════════════
-   HUD UPDATE
-═══════════════════════════════════════════ */
-function updateHUD() {
+function updateModeBadge(cx, cy) {
   const mb = document.getElementById('modeBadge');
   const mv = document.getElementById('modeVal');
-  if (gazeActive) {
-    mb.style.display = 'block';
-    const zone = (gazeX >= 0) ? getZone(gazeX, gazeY) : 'center';
-    mv.textContent = (zone === 'top') ? 'বিস্ফোরণ 💥 (চোখ উপরে)' : MODES[currentMode];
-  } else {
-    mb.style.display = 'none';
-  }
-
-  if (lastMode !== currentMode) {
-    lastMode = currentMode;
-    const bb = document.getElementById('blinkBadge');
-    bb.style.display = 'block';
-    bb.textContent   = '😑 মোড: ' + MODES[currentMode];
-    clearTimeout(bb._t);
-    bb._t = setTimeout(() => { bb.style.display = 'none'; }, 1800);
-  }
+  if (!gazeReady) { mb.style.display='none'; return; }
+  mb.style.display='block';
+  const top = cx>=0 && cy < H*.18;
+  mv.textContent = top ? 'বিস্ফোরণ 💥' : MODES[mode];
+  if (lastMode !== mode) { lastMode = mode; }
 }
 
-/* ═══════════════════════════════════════════
+/* ════════════════════════════════════════════
    MAIN LOOP
-═══════════════════════════════════════════ */
+════════════════════════════════════════════ */
 let lastT = 0;
 function loop(now) {
   requestAnimationFrame(loop);
   if (now - lastT < 14) return;
   lastT = now;
 
-  lerpGaze();
-  if (gazeX >= 0) gazeZone = getZone(gazeX, gazeY);
+  computeGaze();
+  const pred = predictedGaze();
+  updateDisplayCursor(pred.x, pred.y);
 
-  ctx.fillStyle = 'rgba(6,6,15,0.17)';
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle='rgba(6,6,15,0.17)';
+  ctx.fillRect(0,0,W,H);
 
-  drawZoneHints();
-  updateP();
-  drawP();
-  drawLines();
-  drawGazeCursor();
-  updateHUD();
+  drawZoneHint();
+  updateP(pred.x, pred.y);
+  drawP(pred.x, pred.y);
+  drawCursorRing(dcLerpX, dcLerpY);
+  updateModeBadge(pred.x, pred.y);
 }
 requestAnimationFrame(loop);
 
-/* ═══════════════════════════════════════════
+/* ════════════════════════════════════════════
    CALIBRATION
-═══════════════════════════════════════════ */
-const CAL_POINTS = [
-  [0.1,0.1],[0.5,0.1],[0.9,0.1],
-  [0.1,0.5],[0.5,0.5],[0.9,0.5],
-  [0.1,0.9],[0.5,0.9],[0.9,0.9]
+════════════════════════════════════════════ */
+const CAL_PTS = [
+  [.1,.1],[.5,.1],[.9,.1],
+  [.1,.5],[.5,.5],[.9,.5],
+  [.1,.9],[.5,.9],[.9,.9]
 ];
 let calIdx = 0;
-let calDotEl, calOvEl, calMsgEl;
+let calTimer = null;
 
-function showCalPoint() {
-  calDotEl.style.display  = 'block';
-  calOvEl.style.display   = 'block';
-  calMsgEl.style.display  = 'block';
-
-  const [rx, ry] = CAL_POINTS[calIdx];
-  calDotEl.style.left = (rx * 100) + '%';
-  calDotEl.style.top  = (ry * 100) + '%';
-  calMsgEl.textContent =
-    `👁️ এই বিন্দুতে তাকান (${calIdx+1}/${CAL_POINTS.length})\nক্লিক করুন বা 1 সেকেন্ড দেখুন`;
-
-  // auto-advance after 1.2s
-  calDotEl._t = setTimeout(() => {
-    webgazer.recordScreenPosition(rx * window.innerWidth, ry * window.innerHeight);
+function runCal() {
+  const dotEl = document.getElementById('calDot');
+  const progEl= document.getElementById('calProgress');
+  if (calIdx >= CAL_PTS.length) { endCal(); return; }
+  const [rx,ry] = CAL_PTS[calIdx];
+  dotEl.style.display='block';
+  dotEl.style.left = (rx*100)+'%';
+  dotEl.style.top  = (ry*100)+'%';
+  progEl.style.display='block';
+  progEl.innerHTML=`👁️ এই বিন্দুতে তাকান<br><span style="color:#7fffc4;font-size:16px;font-weight:700">${calIdx+1} / ${CAL_PTS.length}</span><br><span style="font-size:11px;opacity:.5">1 সেকেন্ড স্থির থাকুন</span>`;
+  clearTimeout(calTimer);
+  calTimer = setTimeout(()=>{
+    webgazer.recordScreenPosition(rx*innerWidth, ry*innerHeight, 'click');
     calIdx++;
-    if (calIdx < CAL_POINTS.length) {
-      showCalPoint();
-    } else {
-      endCalibration();
-    }
-  }, 1200);
+    runCal();
+  }, 1100);
 }
 
-function endCalibration() {
-  calDotEl.style.display  = 'none';
-  calOvEl.style.display   = 'none';
-  calMsgEl.style.display  = 'none';
-  document.getElementById('dot').className = 'track';
-  document.getElementById('sl').textContent = 'চোখ ট্র্যাক হচ্ছে ✓';
-  gazeActive = true;
+function endCal() {
+  document.getElementById('calDot').style.display='none';
+  document.getElementById('calProgress').style.display='none';
+  document.getElementById('dot').className='track';
+  document.getElementById('sl').textContent='চোখ ট্র্যাক হচ্ছে ✓';
+  gazeReady = true;
+  showToast('ক্যালিব্রেশন সম্পন্ন! চোখ নাড়ান 👁️');
 }
 
-/* ═══════════════════════════════════════════
-   BLINK DETECTION
-   WebGazer gives eye features — we track eye patch brightness
-   as a simple proxy for blink.
-   Simpler approach: use requestAnimationFrame to sample video
-   and detect sudden darkness in the eye region.
-═══════════════════════════════════════════ */
-let eyeCanvas, eyeCtx;
-function setupBlinkDetector(vid) {
-  eyeCanvas = document.createElement('canvas');
-  eyeCanvas.width  = 64;
-  eyeCanvas.height = 24;
-  eyeCtx = eyeCanvas.getContext('2d', { willReadFrequently: true });
-  detectBlink(vid);
-}
-
-let prevBrightness = 255;
-let blinkOpen = true;
-function detectBlink(vid) {
-  requestAnimationFrame(() => detectBlink(vid));
-
-  if (!vid || vid.readyState < 2) return;
-
-  // Sample center-top of video (where eyes usually are)
-  try {
-    eyeCtx.drawImage(vid, 0, vid.videoHeight * 0.2,
-                     vid.videoWidth, vid.videoHeight * 0.3,
-                     0, 0, 64, 24);
-    const d = eyeCtx.getImageData(0, 0, 64, 24).data;
-    let sum = 0;
-    for (let i = 0; i < d.length; i += 16) sum += d[i];
-    const brightness = sum / (d.length / 16);
-
-    const THRESH = prevBrightness * 0.72;
-
-    if (brightness < THRESH && blinkOpen) {
-      // eye just closed
-      blinkOpen  = false;
-      blinkStart = performance.now();
-    } else if (brightness > THRESH * 1.1 && !blinkOpen) {
-      // eye just opened
-      blinkOpen = true;
-      const dur = performance.now() - blinkStart;
-      const now = performance.now();
-      if (dur > LONG_BLINK && now - lastBlinkTime > BLINK_COOL) {
-        lastBlinkTime = now;
-        currentMode = (currentMode + 1) % MODES.length;
-      }
-    }
-    prevBrightness = prevBrightness * 0.95 + brightness * 0.05;
-  } catch(e) {}
-}
-
-/* ═══════════════════════════════════════════
-   MOVE WEBGAZER VIDEO INTO OUR CAMBOX
-═══════════════════════════════════════════ */
-function moveWebgazerUI() {
-  const camBox = document.getElementById('camBox');
-  // WebGazer injects #webgazerVideoContainer
-  const wgVid = document.getElementById('webgazerVideoContainer');
-  if (wgVid) {
-    wgVid.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;overflow:hidden';
-    camBox.appendChild(wgVid);
+/* ════════════════════════════════════════════
+   MOVE WEBGAZER VIDEO INTO CAMBOX
+════════════════════════════════════════════ */
+function hijackWebgazerUI() {
+  const box = document.getElementById('camBox');
+  // clear camBox
+  box.innerHTML = '';
+  // find webgazer video
+  const vid = document.getElementById('webgazerVideoFeed')
+           || document.querySelector('video');
+  if (vid) {
+    vid.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)';
+    box.appendChild(vid);
+    // hide default webgazer container div
+    const wc = document.getElementById('webgazerVideoContainer');
+    if (wc) wc.style.cssText='position:fixed;bottom:14px;right:14px;width:148px;height:110px;overflow:hidden;border-radius:9px;z-index:-1;opacity:0;pointer-events:none';
+    return vid;
   }
-  const wgFace = document.getElementById('webgazerFaceOverlay');
-  if (wgFace) {
-    wgFace.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;overflow:hidden';
-    camBox.appendChild(wgFace);
-  }
-  // hide webgazer's default video element styles
-  const wgV = document.getElementById('webgazerVideoFeed');
-  if (wgV) {
-    wgV.style.cssText = 'width:100%;height:100%;object-fit:cover;transform:scaleX(-1)';
-  }
+  return null;
 }
 
-/* ═══════════════════════════════════════════
+/* ════════════════════════════════════════════
    START
-═══════════════════════════════════════════ */
+════════════════════════════════════════════ */
 document.getElementById('startBtn').addEventListener('click', async () => {
-  const btn = document.getElementById('startBtn');
-  const sl  = document.getElementById('sl');
-  const dotEl = document.getElementById('dot');
-  const em  = document.getElementById('errMsg');
-
-  btn.disabled    = true;
-  btn.textContent = 'লোড হচ্ছে...';
-  sl.textContent  = 'WebGazer লোড হচ্ছে...';
-  dotEl.className = 'cal';
-
-  calDotEl  = document.getElementById('calDot');
-  calOvEl   = document.getElementById('calOv');
-  calMsgEl  = document.getElementById('calMsg');
+  const btn  = document.getElementById('startBtn');
+  const dotEl= document.getElementById('dot');
+  const sl   = document.getElementById('sl');
+  const em   = document.getElementById('errMsg');
+  btn.disabled=true; btn.textContent='লোড হচ্ছে...';
+  sl.textContent='WebGazer লোড হচ্ছে...';
+  dotEl.className='cal';
 
   try {
+    // configure webgazer BEFORE begin
+    webgazer.params.showVideoPreview  = false;
+    webgazer.params.showFaceOverlay   = false;
+    webgazer.params.showFaceFeedbackBox = false;
+
     await webgazer
-      .setGazeListener((data) => {
+      .setRegression('ridge')
+      .setGazeListener((data, elapsedTime) => {
         if (!data) return;
-        // Clamp to screen
-        gazeRawX = Math.max(0, Math.min(W, data.x));
-        gazeRawY = Math.max(0, Math.min(H, data.y));
+        const x = Math.max(0, Math.min(innerWidth,  data.x));
+        const y = Math.max(0, Math.min(innerHeight, data.y));
+        pushGaze(x, y);
       })
       .begin();
 
@@ -604,40 +555,30 @@ document.getElementById('startBtn').addEventListener('click', async () => {
             .showPredictionPoints(false)
             .applyKalmanFilter(true);
 
-    // wait for video to be ready
-    let tries = 0;
-    const waitVid = setInterval(() => {
-      const vid = document.querySelector('#webgazerVideoFeed') ||
-                  document.querySelector('video[id*="webgazer"]');
-      if (vid && vid.readyState >= 2) {
-        clearInterval(waitVid);
-        moveWebgazerUI();
-        sl.textContent = 'ক্যালিব্রেশন চলছে...';
-
-        // hide main overlay, show calibration
-        document.getElementById('ov').style.display = 'none';
-        setTimeout(() => {
-          showCalPoint();
-          setupBlinkDetector(vid);
-        }, 400);
-
-      } else if (++tries > 60) {
-        clearInterval(waitVid);
-        // just proceed without waiting
-        document.getElementById('ov').style.display = 'none';
-        sl.textContent = 'চোখ ট্র্যাক হচ্ছে';
-        gazeActive = true;
-        dotEl.className = 'track';
+    // poll for video
+    let tries=0;
+    const poll = setInterval(()=>{
+      const vid = hijackWebgazerUI();
+      if (vid && vid.readyState>=2) {
+        clearInterval(poll);
+        document.getElementById('ov').style.display='none';
+        sl.textContent='ক্যালিব্রেশন চলছে...';
+        setupBlink(vid);
+        setTimeout(runCal, 500);
+      } else if (++tries > 80) {
+        clearInterval(poll);
+        document.getElementById('ov').style.display='none';
+        gazeReady=true;
+        dotEl.className='track';
+        sl.textContent='চোখ ট্র্যাক হচ্ছে ✓';
       }
-    }, 300);
+    }, 250);
 
   } catch(e) {
-    em.style.display  = 'block';
-    em.textContent    = '⚠️ ক্যামেরা পারমিশন দিন অথবা Chrome ব্রাউজার ব্যবহার করুন।';
-    btn.disabled      = false;
-    btn.textContent   = '👁️ আবার চেষ্টা করুন';
-    sl.textContent    = 'এরর';
-    dotEl.className   = 'err';
+    em.style.display='block';
+    em.textContent='⚠️ ক্যামেরা পারমিশন দিন। Chrome ব্রাউজার সবচেয়ে ভালো কাজ করে।';
+    btn.disabled=false; btn.textContent='👁️ আবার চেষ্টা করুন';
+    sl.textContent='এরর'; dotEl.className='err';
     console.error(e);
   }
 });
